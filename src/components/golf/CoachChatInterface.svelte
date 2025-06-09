@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
+  import { supabase } from '../../lib/supabase';
   import Button from '../ui/Button.svelte';
   import Card from '../ui/Card.svelte';
   
@@ -58,12 +59,20 @@
     try {
       isLoading = true;
       
-      // Call our chat API (we'll create this)
+      // Get current session token properly
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      // Call our chat API
       const response = await fetch(`/api/chat/${swingId || 'general'}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token') || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           message: userMsg,

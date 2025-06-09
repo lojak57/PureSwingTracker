@@ -2,47 +2,47 @@
 /* NEVER redeclare these variables in components */
 
 :root {
-  /* ===== SAGE (PRIMARY GREEN) ===== */
-  --sage-50: #f8faf9;
-  --sage-100: #e8f2ed;
-  --sage-200: #d1e7d8;
-  --sage-300: #a8d4b8;
-  --sage-400: #7fb894;
-  --sage-500: #5a9b6f;
-  --sage-600: #4a7f5c;
-  --sage-700: #3d6649;
-  --sage-800: #2f4d37;
-  --sage-900: #203731;
+  /* ===== SAGE (PRIMARY GREEN) - HIGH CONTRAST ===== */
+  --sage-50: #f0f8f4;
+  --sage-100: #dcf2e6;
+  --sage-200: #b8e5ce;
+  --sage-300: #8dd4ae;
+  --sage-400: #5cbe88;
+  --sage-500: #3da66e;
+  --sage-600: #2d8757;
+  --sage-700: #256d47;
+  --sage-800: #1f5b3c;
+  --sage-900: #1a4d33;
 
-  /* ===== GOLD (ACCENT) ===== */
-  --gold-50: #fffef7;
-  --gold-100: #fefaeb;
-  --gold-200: #fdf4d3;
-  --gold-300: #fbea9f;
-  --gold-400: #f7dc6b;
-  --gold-500: #f2cd37;
-  --gold-600: #e6b91a;
-  --gold-700: #c19d16;
-  --gold-800: #9c7f15;
-  --gold-900: #FFB612;
+  /* ===== GOLD (ACCENT) - HIGH CONTRAST ===== */
+  --gold-50: #fffdf2;
+  --gold-100: #fef9e3;
+  --gold-200: #fef1c2;
+  --gold-300: #fde588;
+  --gold-400: #fcd34d;
+  --gold-500: #f59e0b;
+  --gold-600: #d97706;
+  --gold-700: #b45309;
+  --gold-800: #92400e;
+  --gold-900: #78350f;
 
-  /* ===== AUGUSTA (NEUTRALS) ===== */
+  /* ===== AUGUSTA (NEUTRALS) - HIGH CONTRAST ===== */
   --augusta-50: #ffffff;
   --augusta-100: #fefefe;
-  --augusta-200: #fafafa;
-  --augusta-300: #f5f5f5;
-  --augusta-400: #e5e5e5;
-  --augusta-500: #d4d4d4;
-  --augusta-600: #a3a3a3;
-  --augusta-700: #737373;
-  --augusta-800: #525252;
-  --augusta-900: #262626;
+  --augusta-200: #f8f8f8;
+  --augusta-300: #e8e8e8;
+  --augusta-400: #d0d0d0;
+  --augusta-500: #a8a8a8;
+  --augusta-600: #6b6b6b;
+  --augusta-700: #404040;
+  --augusta-800: #262626;
+  --augusta-900: #0a0a0a;
 
-  /* ===== GLASS OVERLAYS ===== */
-  --glass-white: rgba(255, 255, 255, 0.25);
-  --glass-sage: rgba(122, 184, 148, 0.15);
-  --glass-gold: rgba(242, 205, 55, 0.12);
-  --glass-dark: rgba(32, 55, 49, 0.08);
+  /* ===== GLASS OVERLAYS - HIGH CONTRAST ===== */
+  --glass-white: rgba(255, 255, 255, 0.85);
+  --glass-sage: rgba(122, 184, 148, 0.75);
+  --glass-gold: rgba(242, 205, 55, 0.65);
+  --glass-dark: rgba(32, 55, 49, 0.25);
 
   /* ===== SEMANTIC STATUS ===== */
   --success-light: #ecfdf5;

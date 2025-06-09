@@ -70,26 +70,29 @@
   }
 }
 
-/* ===== GLASS UTILITIES ===== */
+/* ===== GLASS UTILITIES - HIGH CONTRAST ===== */
 .glass {
   backdrop-filter: blur(12px);
   background: var(--glass-white);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 1rem;
+  box-shadow: var(--shadow-md);
 }
 
 .glass-sage {
   backdrop-filter: blur(12px);
   background: var(--glass-sage);
-  border: 1px solid rgba(122, 184, 148, 0.25);
+  border: 1px solid rgba(45, 135, 87, 0.4);
   border-radius: 1rem;
+  box-shadow: var(--shadow-md);
 }
 
 .glass-gold {
   backdrop-filter: blur(8px);
   background: var(--glass-gold);
-  border: 1px solid rgba(242, 205, 55, 0.3);
+  border: 1px solid rgba(217, 119, 6, 0.4);
   border-radius: 1rem;
+  box-shadow: var(--shadow-md);
 }
 
 .glass-nav {
@@ -141,10 +144,10 @@
   -webkit-text-fill-color: transparent;
 }
 
-.text-onSurface { color: var(--augusta-700); }
-.text-onSurface-light { color: var(--augusta-600); }
-.text-onSurface-medium { color: var(--augusta-700); }
-.text-onSurface-strong { color: var(--augusta-800); }
+.text-onSurface { color: var(--augusta-800); }
+.text-onSurface-light { color: var(--augusta-700); }
+.text-onSurface-medium { color: var(--augusta-800); }
+.text-onSurface-strong { color: var(--augusta-900); }
 
 /* ===== STATUS COLORS ===== */
 .status-badge {
