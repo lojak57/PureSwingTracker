@@ -11,12 +11,12 @@
   });
 </script>
 
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen bg-gradient-to-br from-surface via-primary-50 to-accent-50">
   <slot />
 </main>
 
 <style>
   :global(body) {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-body), 'Inter', system-ui, sans-serif;
   }
 </style> 

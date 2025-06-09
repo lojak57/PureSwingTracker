@@ -90,6 +90,82 @@ if (hasArchitecturalChanges && !hasADRLink) {
   Consider creating an ADR at \`docs/adr/ADR-XXX-description.md\` and linking it in the PR description.`);
 }
 
+// === DESIGN SYSTEM ENFORCEMENT ===
+const designViolations = [];
+const svelteFiles = allFiles.filter(f => f.match(/\.svelte$/));
+
+for (const file of svelteFiles) {
+  const content = danger.github.utils.fileContents(file);
+  if (!content) continue;
+  
+  // Check for hard-coded hex colors
+  const hexPattern = /#[0-9a-fA-F]{3,8}(?![a-fA-F0-9])/g;
+  const hexMatches = content.match(hexPattern);
+  if (hexMatches) {
+    designViolations.push(`❌ Hard-coded hex colors in \`${file}\`: ${hexMatches.join(', ')}`);
+  }
+  
+  // Check for hard-coded RGB/RGBA
+  const rgbPattern = /rgba?\([^)]+\)/g;
+  const rgbMatches = content.match(rgbPattern);
+  if (rgbMatches) {
+    designViolations.push(`❌ Hard-coded RGB colors in \`${file}\`: ${rgbMatches.join(', ')}`);
+  }
+  
+  // Check for inline styles with colors
+  const inlineStylePattern = /style=["'][^"']*(?:color|background|border-color):[^"']+["']/g;
+  const styleMatches = content.match(inlineStylePattern);
+  if (styleMatches) {
+    designViolations.push(`❌ Inline color styles in \`${file}\`: Use Tailwind classes instead`);
+  }
+  
+  // Check for box-shadow inline styles
+  const shadowPattern = /style=["'][^"']*box-shadow:[^"']+["']/g;
+  const shadowMatches = content.match(shadowPattern);
+  if (shadowMatches) {
+    designViolations.push(`❌ Inline shadow styles in \`${file}\`: Use shadow-md, shadow-lg, etc.`);
+  }
+  
+  // Check for non-semantic Tailwind classes
+  const badTailwindPattern = /class=["'][^"']*(?:bg-(?:blue|red|green|yellow|purple|pink|indigo)-|text-(?:blue|red|green|yellow|purple|pink|indigo)-)/g;
+  const badTailwindMatches = content.match(badTailwindPattern);
+  if (badTailwindMatches) {
+    designViolations.push(`⚠️ Non-semantic colors in \`${file}\`: Use bg-primary-*, bg-accent-*, text-onSurface-*, etc.`);
+  }
+}
+
+// Report design system violations
+if (designViolations.length > 0) {
+  fail(`🎨 **Design System Violations Detected**
+
+${designViolations.join('\n')}
+
+**Fix by using design tokens:**
+- ❌ \`#5a9b6f\` → ✅ \`bg-primary-500\`
+- ❌ \`rgba(255,255,255,0.2)\` → ✅ \`glass\` utility
+- ❌ \`bg-blue-500\` → ✅ \`bg-primary-500\`
+- ❌ \`text-gray-700\` → ✅ \`text-onSurface\`
+
+See DESIGN_SYSTEM.md for the complete token reference.`);
+}
+
+// Check for missing glass utilities
+const glassKeywords = ['backdrop-filter', 'backdrop-blur', 'glass'];
+const hasGlassCSS = svelteFiles.some(file => {
+  const content = danger.github.utils.fileContents(file);
+  return content && glassKeywords.some(keyword => content.includes(keyword));
+});
+
+if (hasGlassCSS) {
+  message(`✨ Glass effects detected! Ensure you're using the standardized utilities:
+- \`glass\` - Primary glass surface  
+- \`glass-sage\` - Sage-tinted glass
+- \`glass-gold\` - Gold-tinted glass
+- \`glass-nav\` - Navigation glass
+
+Avoid custom backdrop-filter values for consistency.`);
+}
+
 // === SECURITY CHECK ===
 const securityPatterns = [
   /password\s*=\s*['"]/i,

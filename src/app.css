@@ -1,24 +1,372 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Import design tokens FIRST - Single Source of Truth */
+@import './lib/styles/tokens.css';
 
-/* Custom styles for Pure Golf App */
+@import "tailwindcss";
+
+/* Tailwind v4 Theme Definition - CSS-first approach */
+@theme {
+  /* Primary = Sage (Green Bay Forest) */
+  --color-primary-50: var(--sage-50);
+  --color-primary-100: var(--sage-100);
+  --color-primary-200: var(--sage-200);
+  --color-primary-300: var(--sage-300);
+  --color-primary-400: var(--sage-400);
+  --color-primary-500: var(--sage-500);
+  --color-primary-600: var(--sage-600);
+  --color-primary-700: var(--sage-700);
+  --color-primary-800: var(--sage-800);
+  --color-primary-900: var(--sage-900);
+  
+  /* Accent = Gold (Green Bay Gold) */
+  --color-accent-50: var(--gold-50);
+  --color-accent-100: var(--gold-100);
+  --color-accent-200: var(--gold-200);
+  --color-accent-300: var(--gold-300);
+  --color-accent-400: var(--gold-400);
+  --color-accent-500: var(--gold-500);
+  --color-accent-600: var(--gold-600);
+  --color-accent-700: var(--gold-700);
+  --color-accent-800: var(--gold-800);
+  --color-accent-900: var(--gold-900);
+  
+  /* Surface = Augusta Neutrals */
+  --color-surface: var(--augusta-50);
+  --color-surface-muted: var(--augusta-100);
+  --color-surface-subtle: var(--augusta-200);
+  --color-surface-border: var(--augusta-300);
+  --color-surface-disabled: var(--augusta-400);
+  --color-surface-strong: var(--augusta-500);
+  
+  /* Typography */
+  --font-family-display: 'Playfair Display', serif;
+  --font-family-heading: 'Crimson Text', serif;
+  --font-family-body: 'Inter', sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+}
+
+/* Pure Golf Design System Components */
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(135deg, var(--augusta-50) 0%, var(--sage-50) 100%);
+    min-height: 100vh;
+  }
+  
+  body {
+    color: var(--augusta-700);
+    line-height: 1.6;
+  }
+  
+  /* Typography base styles */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Crimson Text', serif;
+    color: var(--sage-800);
+    font-weight: 600;
+  }
+  
+  .display-text {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold-700);
   }
 }
 
+/* ===== GLASS UTILITIES ===== */
+.glass {
+  backdrop-filter: blur(12px);
+  background: var(--glass-white);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+}
+
+.glass-sage {
+  backdrop-filter: blur(12px);
+  background: var(--glass-sage);
+  border: 1px solid rgba(122, 184, 148, 0.25);
+  border-radius: 1rem;
+}
+
+.glass-gold {
+  backdrop-filter: blur(8px);
+  background: var(--glass-gold);
+  border: 1px solid rgba(242, 205, 55, 0.3);
+  border-radius: 1rem;
+}
+
+.glass-nav {
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ===== CONTAINER ===== */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* ===== TYPOGRAPHY UTILITIES ===== */
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+.font-display { font-family: var(--font-family-display); }
+.font-heading { font-family: var(--font-family-heading); }
+.font-body { font-family: var(--font-family-body); }
+.font-mono { font-family: var(--font-family-mono); }
+
+.text-gradient-primary {
+  background: linear-gradient(135deg, var(--sage-600), var(--sage-800));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-onSurface { color: var(--augusta-700); }
+.text-onSurface-light { color: var(--augusta-600); }
+.text-onSurface-medium { color: var(--augusta-700); }
+.text-onSurface-strong { color: var(--augusta-800); }
+
+/* ===== STATUS COLORS ===== */
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-success {
+  background: var(--success-light);
+  color: var(--success-dark);
+}
+
+.status-warning {
+  background: var(--warning-light);
+  color: var(--warning-dark);
+}
+
+.status-error {
+  background: var(--error-light);
+  color: var(--error-dark);
+}
+
 @layer components {
+  /* ===== BUTTON SYSTEM ===== */
   .btn-primary {
-    @apply bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-600 transition-colors duration-200;
+    background: var(--sage-500);
+    color: var(--augusta-50);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-md);
+    transition: all 250ms ease;
   }
   
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  .btn-primary:hover {
+    background: var(--sage-400);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
   }
   
+  .btn-secondary {
+    backdrop-filter: blur(12px);
+    background: var(--glass-white);
+    color: var(--sage-700);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 250ms ease;
+  }
+  
+  .btn-secondary:hover {
+    background: var(--glass-sage);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* ===== CARD SYSTEM ===== */
+  .card-primary {
+    backdrop-filter: blur(12px);
+    background: var(--glass-white);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .card-feature {
+    backdrop-filter: blur(12px);
+    background: var(--glass-white);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition: all 350ms ease;
+  }
+  
+  .card-feature:hover {
+    backdrop-filter: blur(16px);
+    background: var(--glass-sage);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+  }
+  
+  .card-stat {
+    backdrop-filter: blur(12px);
+    background: var(--glass-sage);
+    border: 1px solid rgba(122, 184, 148, 0.3);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+  
+  /* ===== FORM SYSTEM ===== */
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    backdrop-filter: blur(12px);
+    background: var(--glass-white);
+    border: 1px solid var(--augusta-300);
+    border-radius: 0.75rem;
+    transition: all 250ms ease;
+  }
+  
+  .input-field:focus {
+    outline: none;
+    background: var(--glass-sage);
+    border-color: var(--sage-300);
+    box-shadow: 0 0 0 2px rgba(90, 155, 111, 0.2);
+  }
+  
+  .input-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--augusta-800);
+    margin-bottom: 0.5rem;
+  }
+  
+  .input-error {
+    color: var(--error);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+  
+  /* ===== NAVIGATION ===== */
+  .nav-link {
+    color: var(--augusta-700);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 150ms ease;
+  }
+  
+  .nav-link:hover {
+    background: rgba(90, 155, 111, 0.1);
+    color: var(--sage-700);
+  }
+  
+  .nav-link-active {
+    background: rgba(90, 155, 111, 0.2);
+    color: var(--sage-800);
+    font-weight: 600;
+  }
+  
+  /* ===== GOLF-SPECIFIC COMPONENTS ===== */
+  .recording-interface {
+    backdrop-filter: blur(12px);
+    background: var(--glass-sage);
+    border: 2px solid rgba(90, 155, 111, 0.3);
+    border-radius: 1.5rem;
+    padding: 2rem;
+  }
+  
+  .coach-message {
+    backdrop-filter: blur(8px);
+    background: var(--glass-gold);
+    border: 1px solid rgba(242, 205, 55, 0.3);
+    border-radius: 1rem;
+    padding: 1rem;
+    max-width: 28rem;
+  }
+  
+  .user-message {
+    background: var(--sage-500);
+    color: var(--augusta-50);
+    border-radius: 1rem;
+    padding: 1rem;
+    max-width: 28rem;
+    margin-left: auto;
+  }
+  
+  .drill-card {
+    backdrop-filter: blur(12px);
+    background: var(--glass-white);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 350ms ease;
+  }
+  
+  .drill-card:hover {
+    background: var(--glass-sage);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+  }
+  
+  .swing-category-card {
+    backdrop-filter: blur(12px);
+    background: var(--glass-white);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-left: 4px solid var(--sage-400);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 350ms ease;
+  }
+  
+  /* ===== PROGRESS & STATUS ===== */
+  .progress-bar {
+    background: var(--augusta-200);
+    border-radius: 9999px;
+    height: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .progress-fill {
+    background: linear-gradient(to right, var(--sage-500), var(--gold-500));
+    height: 100%;
+    border-radius: 9999px;
+    transition: all 500ms ease;
+  }
+  
+  .status-processing {
+    background: rgba(90, 155, 111, 0.1);
+    color: var(--sage-700);
+    animation: pulse 2s ease-in-out infinite;
   }
 } 

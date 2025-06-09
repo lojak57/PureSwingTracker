@@ -1,7 +1,14 @@
 import { json } from '@sveltejs/kit';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
-
-// Mock implementation for now - will replace with actual R2 integration
+import {
+  R2_ACCESS_KEY,
+  R2_SECRET_KEY,
+  R2_BUCKET_NAME,
+  CLOUDFLARE_ACCOUNT_ID
+} from '$env/static/private';
 export const POST: RequestHandler = async ({ request }) => {
   try {
     // Parse request body
@@ -24,34 +31,52 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // Extract token (in real implementation, verify with Supabase)
+    // Extract and verify JWT token with Supabase
     const token = authHeader.split(' ')[1];
-    if (!token) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
       return json(
         { error: { code: 'INVALID_TOKEN', message: 'Invalid authentication token' } },
         { status: 401 }
       );
     }
 
+    // Initialize S3 client for Cloudflare R2
+    const s3Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY,
+        secretAccessKey: R2_SECRET_KEY,
+      },
+    });
+
     // Generate unique file names
     const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 15);
-    const userId = 'user_' + randomId; // In real implementation, extract from JWT
-
-    const baseFileName = `${userId}/${category}/${timestamp}`;
+    const baseFileName = `${user.id}/${category}/${timestamp}`;
     
-    // Mock presigned URLs (in real implementation, use AWS SDK for R2)
-    const mockUrls = {
-      down_line: `https://pure-golf-videos.r2.cloudflarestorage.com/${baseFileName}_down_line.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...&X-Amz-Date=...&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=...`,
-      face_on: `https://pure-golf-videos.r2.cloudflarestorage.com/${baseFileName}_face_on.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...&X-Amz-Date=...&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=...`,
-      overhead: `https://pure-golf-videos.r2.cloudflarestorage.com/${baseFileName}_overhead.webm?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...&X-Amz-Date=...&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=...`
-    };
+    // Generate presigned URLs for each angle
+    const angles = ['down_line', 'face_on', 'overhead'] as const;
+    const presignedUrls: Record<string, string> = {};
+
+    for (const angle of angles) {
+      const key = `${baseFileName}_${angle}.webm`;
+      const command = new PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: key,
+        ContentType: 'video/webm',
+      });
+
+      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+      presignedUrls[angle] = presignedUrl;
+    }
 
     // Log request for monitoring
-    console.log(`Presigned URLs generated for category: ${category}, user: ${userId}`);
+    console.log(`Presigned URLs generated for category: ${category}, user: ${user.id}`);
 
     return json({
-      urls: mockUrls,
+      urls: presignedUrls,
       expires_in: 900 // 15 minutes
     });
 
@@ -69,28 +94,4 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 };
 
-// TODO: Implement actual R2 integration
-// Example implementation with @aws-sdk/client-s3:
-/*
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY,
-    secretAccessKey: R2_SECRET_KEY,
-  },
-});
-
-async function generatePresignedUrl(key: string, contentType: string): Promise<string> {
-  const command = new PutObjectCommand({
-    Bucket: 'pure-golf-videos',
-    Key: key,
-    ContentType: contentType,
-  });
-
-  return await getSignedUrl(s3Client, command, { expiresIn: 900 });
-}
-*/ 
+ 

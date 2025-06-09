@@ -10,6 +10,14 @@ declare global {
 	}
 }
 
+declare module '$env/static/private' {
+	export const R2_ACCESS_KEY: string;
+	export const R2_SECRET_KEY: string;
+	export const R2_BUCKET_NAME: string;
+	export const CLOUDFLARE_ACCOUNT_ID: string;
+	export const OPENAI_API_KEY: string;
+}
+
 // Environment variables
 declare module '$env/static/public' {
 	export const PUBLIC_SUPABASE_URL: string;
@@ -21,6 +29,8 @@ declare module '$env/static/private' {
 	export const OPENAI_API_KEY: string;
 	export const R2_ACCESS_KEY: string;
 	export const R2_SECRET_KEY: string;
+	export const R2_BUCKET_NAME: string;
+	export const CLOUDFLARE_ACCOUNT_ID: string;
 	export const JWT_SECRET: string;
 }
 

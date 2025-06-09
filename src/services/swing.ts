@@ -238,7 +238,7 @@ export class SwingService {
   static async getSwingStatus(swingId: string): Promise<any> {
     try {
       const { data, error } = await supabase
-        .from('swings')
+        .from('pure.swings')
         .select('*')
         .eq('id', swingId)
         .single();

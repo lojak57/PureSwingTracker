@@ -108,11 +108,41 @@ export class AuthService {
    */
   static async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      // If there's a refresh token error, clear the session
+      if (error?.message?.includes('Invalid Refresh Token') || error?.message?.includes('Refresh Token Not Found')) {
+        console.warn('Refresh token invalid, clearing session');
+        await this.clearSession();
+        return null;
+      }
+      
       return session?.user as AuthUser || null;
     } catch (error) {
       console.error('Error getting current user:', error);
+      // If it's a refresh token error, clear session
+      if (error instanceof Error && error.message.includes('refresh')) {
+        await this.clearSession();
+      }
       return null;
+    }
+  }
+
+  /**
+   * Clear corrupted session data
+   */
+  static async clearSession(): Promise<void> {
+    try {
+      // Clear Supabase session
+      await supabase.auth.signOut({ scope: 'local' });
+      
+      // Clear any local storage data
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('supabase.auth.token');
+        sessionStorage.removeItem('supabase.auth.token');
+      }
+    } catch (error) {
+      console.error('Error clearing session:', error);
     }
   }
 
