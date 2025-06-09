@@ -1,0 +1,52 @@
+# Code ownership routing for Pure Golf Platform
+# Ensures domain experts review relevant changes
+
+# Root configuration files
+package*.json           @platform-lead
+*.config.*             @platform-lead
+.github/               @platform-lead
+
+# Database and infrastructure
+*.sql                  @database-lead
+supabase/              @database-lead
+pose-service/          @backend-ai
+docker-compose.*       @backend-ai
+Dockerfile             @backend-ai
+
+# Frontend core
+src/app.*              @frontend-lead
+src/routes/+layout.*   @frontend-lead
+tailwind.config.*      @frontend-lead @design
+
+# Components and UI
+src/components/        @frontend-lead @design
+src/lib/ui/           @design
+
+# Business logic services
+src/services/          @backend-lead
+src/lib/supabase.*     @backend-lead
+
+# Authentication and security
+src/routes/auth/       @security-lead @backend-lead
+src/services/auth.*    @security-lead
+
+# AI and analysis
+src/services/ai.*      @backend-ai
+src/routes/api/swing/  @backend-ai
+
+# Admin and internal tools
+src/routes/admin/      @platform-lead
+src/routes/api/admin/  @platform-lead
+
+# Documentation
+docs/                  @product
+*.md                   @product
+planningdoc.md         @product @platform-lead
+EXECUTION_PLAN.md      @platform-lead
+
+# Critical user flows
+src/routes/dashboard/  @product @frontend-lead
+src/routes/swing/      @product @backend-ai @frontend-lead
+
+# Default fallback for unmatched files
+*                      @platform-lead 
