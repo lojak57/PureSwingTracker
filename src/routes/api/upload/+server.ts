@@ -279,11 +279,52 @@ export const POST: RequestHandler = async ({ request }) => {
       });
     }
 
-    // 10. Return response
+    // 10. Create swing record for analysis if upload successful
+    let swingId;
+    if (success) {
+      try {
+        // Convert upload results to video URLs format for swing submission
+        const videoUrls: Record<string, string> = {};
+        for (const [angle, result] of Object.entries(uploadResults)) {
+          if (result.uploaded) {
+            videoUrls[angle] = `https://${R2_BUCKET_NAME}.r2.cloudflarestorage.com/${result.key}`;
+          }
+        }
+
+        // Create swing record for analysis pipeline
+        const swingData = {
+          user_id: userId,
+          category,
+          video_urls: videoUrls,
+          metadata: { upload_session: uploadSession },
+          status: 'queued' as const,
+          upload_mode: mode,
+          r2_validated: true,
+          created_at: new Date().toISOString()
+        };
+
+        const { data: swing, error: insertError } = await adminClient
+          .from('pure_swings')
+          .insert(swingData)
+          .select()
+          .single();
+
+        if (!insertError && swing) {
+          swingId = swing.id;
+          console.log(`💾 Swing record created: ${swing.id} for analysis pipeline`);
+        }
+      } catch (error) {
+        console.warn('Failed to create swing record:', error);
+        // Don't fail the entire upload if swing creation fails
+      }
+    }
+
+    // 11. Return response
     if (success) {
       return json({
         success: true,
         uploadSession,
+        swingId, // Include swing ID for navigation
         results: uploadResults,
         metadata: {
           mode,

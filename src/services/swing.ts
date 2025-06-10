@@ -249,7 +249,8 @@ export class SwingService {
             if (xhr.status >= 200 && xhr.status < 300) {
               const response = JSON.parse(xhr.responseText);
               if (response.success) {
-                resolve({ success: true, swingId: response.uploadSession });
+                // Use swingId if available, otherwise fall back to uploadSession
+                resolve({ success: true, swingId: response.swingId || response.uploadSession });
               } else {
                 resolve({ 
                   success: false, 
