@@ -107,6 +107,8 @@ export const POST: RequestHandler = async ({ request }) => {
         try {
           const url = new URL(presignedUrl);
           url.hostname = R2_CUSTOM_DOMAIN.replace('https://', '').replace('http://', '');
+          // Remove bucket name from path for custom domain
+          url.pathname = url.pathname.replace(`/${R2_BUCKET_NAME}`, '');
           finalUrl = url.toString();
         } catch (error) {
           console.error('Failed to replace hostname:', error);

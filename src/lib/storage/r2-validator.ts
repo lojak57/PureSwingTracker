@@ -219,6 +219,8 @@ export class R2Validator {
           try {
             const urlObj = new URL(signedUrl);
             urlObj.hostname = R2_CUSTOM_DOMAIN.replace('https://', '').replace('http://', '');
+            // Remove bucket name from path for custom domain
+            urlObj.pathname = urlObj.pathname.replace(`/${R2_BUCKET_NAME}`, '');
             finalUrl = urlObj.toString();
           } catch (error) {
             console.error('Failed to replace hostname:', error);
