@@ -60,6 +60,12 @@ export const POST: RequestHandler = async ({ request }) => {
     // because AWS SDK still prepends bucket name as subdomain.
     
     const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
+    
+    console.log('Debug R2 config:', {
+      R2_CUSTOM_DOMAIN,
+      isCustomDomain,
+      r2Endpoint
+    });
 
     const s3Client = new S3Client({
       region: 'auto',
@@ -98,12 +104,16 @@ export const POST: RequestHandler = async ({ request }) => {
 
       let presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
       
+      console.log('Before URL replacement:', { presignedUrl, isCustomDomain });
+      
       // If using custom domain, replace the default R2 endpoint with custom domain
       if (isCustomDomain) {
+        const originalUrl = presignedUrl;
         presignedUrl = presignedUrl.replace(
           `https://${R2_BUCKET_NAME}.${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
           `https://${R2_CUSTOM_DOMAIN}`
         );
+        console.log('URL replacement:', { originalUrl, newUrl: presignedUrl, replaced: originalUrl !== presignedUrl });
       }
       
       presignedUrls[angle] = presignedUrl;
