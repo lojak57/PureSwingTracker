@@ -220,7 +220,7 @@ export class R2Validator {
         // If using custom domain, replace the default R2 endpoint with custom domain
         if (isCustomDomain) {
           signedUrl = signedUrl.replace(
-            `https://${R2_BUCKET_NAME}.${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+            `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET_NAME}`,
             `https://${R2_CUSTOM_DOMAIN}`
           );
         }

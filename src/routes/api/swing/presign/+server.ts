@@ -110,7 +110,7 @@ export const POST: RequestHandler = async ({ request }) => {
       if (isCustomDomain) {
         const originalUrl = presignedUrl;
         presignedUrl = presignedUrl.replace(
-          `https://${R2_BUCKET_NAME}.${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+          `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET_NAME}`,
           `https://${R2_CUSTOM_DOMAIN}`
         );
         console.log('URL replacement:', { originalUrl, newUrl: presignedUrl, replaced: originalUrl !== presignedUrl });
