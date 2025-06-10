@@ -62,9 +62,14 @@ export class R2Validator {
    */
   private static getS3Client(): S3Client {
     if (!this.s3Client) {
+      const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
+
       this.s3Client = new S3Client({
         region: 'auto',
-        endpoint: this.getR2Endpoint(),
+        endpoint: isCustomDomain 
+          ? `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`  // Use default endpoint for signing
+          : this.getR2Endpoint(),
+        forcePathStyle: true,  // Always use path style for consistent behavior
         credentials: {
           accessKeyId: R2_ACCESS_KEY,
           secretAccessKey: R2_SECRET_KEY,
@@ -197,6 +202,7 @@ export class R2Validator {
       const s3Client = this.getS3Client();
       const signedUrls: Record<string, string> = {};
       const requestId = crypto.randomUUID();
+      const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
 
       for (const [angle, url] of Object.entries(videoUrls)) {
         if (!url) continue;
@@ -207,9 +213,17 @@ export class R2Validator {
           Key: key
         });
 
-        const signedUrl = await getSignedUrl(s3Client, command, { 
+        let signedUrl = await getSignedUrl(s3Client, command, { 
           expiresIn: expiresInSeconds 
         });
+        
+        // If using custom domain, replace the default R2 endpoint with custom domain
+        if (isCustomDomain) {
+          signedUrl = signedUrl.replace(
+            `https://${R2_BUCKET_NAME}.${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+            `https://${R2_CUSTOM_DOMAIN}`
+          );
+        }
         
         signedUrls[angle] = signedUrl;
       }

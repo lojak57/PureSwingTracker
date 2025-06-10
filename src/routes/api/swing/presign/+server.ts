@@ -55,10 +55,18 @@ export const POST: RequestHandler = async ({ request }) => {
       ? `https://${R2_CUSTOM_DOMAIN}`
       : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-    // Initialize S3 client for Cloudflare R2
+    // Initialize S3 client for Cloudflare R2.
+    // For custom domains, we need to handle URL construction differently
+    // because AWS SDK still prepends bucket name as subdomain.
+    
+    const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
+
     const s3Client = new S3Client({
       region: 'auto',
-      endpoint: r2Endpoint,
+      endpoint: isCustomDomain 
+        ? `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`  // Use default endpoint for signing
+        : r2Endpoint,
+      forcePathStyle: true,  // Always use path style for consistent behavior
       credentials: {
         accessKeyId: R2_ACCESS_KEY,
         secretAccessKey: R2_SECRET_KEY,
@@ -88,7 +96,16 @@ export const POST: RequestHandler = async ({ request }) => {
         ContentType: 'video/webm',
       });
 
-      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+      let presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+      
+      // If using custom domain, replace the default R2 endpoint with custom domain
+      if (isCustomDomain) {
+        presignedUrl = presignedUrl.replace(
+          `https://${R2_BUCKET_NAME}.${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+          `https://${R2_CUSTOM_DOMAIN}`
+        );
+      }
+      
       presignedUrls[angle] = presignedUrl;
     }
 
