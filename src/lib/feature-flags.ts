@@ -17,8 +17,8 @@ const getFeatureFlags = (): FeatureFlags => {
     : process.env.NODE_ENV === 'development';
 
   return {
-    // Enable backend upload for all users now that it's production ready
-    useBackendUpload: true,
+    // Temporarily use presigned URLs due to Vercel 4.5MB body limit
+    useBackendUpload: false,
     enableQuotaEnforcement: true,
     enableAdvancedAnalytics: false,
   };
