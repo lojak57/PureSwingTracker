@@ -50,19 +50,12 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // Get R2 endpoint (custom domain or default)
-    const r2Endpoint = (R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com') 
-      ? `https://${R2_CUSTOM_DOMAIN}`
-      : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    // Get R2 endpoint (always use default for presigned URLs)
+    const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-    // Initialize S3 client for Cloudflare R2.
-    // Use custom domain as endpoint if available, so signatures are calculated correctly
-    
-    const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
-    
     console.log('Debug R2 config:', {
       R2_CUSTOM_DOMAIN,
-      isCustomDomain,
+      isCustomDomain: Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com'),
       r2Endpoint
     });
 
@@ -101,24 +94,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
       const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
       
-      // For custom domains, replace just the hostname to preserve the signature
-      let finalUrl = presignedUrl;
-      if (isCustomDomain) {
-        try {
-          const url = new URL(presignedUrl);
-          url.hostname = R2_CUSTOM_DOMAIN.replace('https://', '').replace('http://', '');
-          // Remove bucket name from path for custom domain
-          url.pathname = url.pathname.replace(`/${R2_BUCKET_NAME}`, '');
-          finalUrl = url.toString();
-        } catch (error) {
-          console.error('Failed to replace hostname:', error);
-          finalUrl = presignedUrl; // Fallback to original
-        }
-      }
+      console.log('Generated presigned URL:', { angle, presignedUrl });
       
-      console.log('Generated presigned URL:', { angle, originalUrl: presignedUrl, finalUrl });
-      
-      presignedUrls[angle] = finalUrl;
+      presignedUrls[angle] = presignedUrl;
     }
 
     // Log request for monitoring
