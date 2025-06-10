@@ -17,8 +17,8 @@ const getFeatureFlags = (): FeatureFlags => {
     : process.env.NODE_ENV === 'development';
 
   return {
-    // Enable backend upload in development by default for testing
-    useBackendUpload: isDev || (typeof window !== 'undefined' && window.localStorage.getItem('ff_backend_upload') === 'true'),
+    // Enable backend upload for all users now that it's production ready
+    useBackendUpload: true,
     enableQuotaEnforcement: true,
     enableAdvancedAnalytics: false,
   };
