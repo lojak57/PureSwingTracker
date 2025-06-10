@@ -69,8 +69,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const s3Client = new S3Client({
       region: 'auto',
       endpoint: r2Endpoint,
-      bucketEndpoint: isCustomDomain,  // Tell SDK the endpoint already points to bucket
-      forcePathStyle: !isCustomDomain, // Use path style only for default endpoint
+      forcePathStyle: true,
       credentials: {
         accessKeyId: R2_ACCESS_KEY,
         secretAccessKey: R2_SECRET_KEY,
@@ -102,9 +101,22 @@ export const POST: RequestHandler = async ({ request }) => {
 
       const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
       
-      console.log('Generated presigned URL:', { angle, presignedUrl });
+      // For custom domains, replace just the hostname to preserve the signature
+      let finalUrl = presignedUrl;
+      if (isCustomDomain) {
+        try {
+          const url = new URL(presignedUrl);
+          url.hostname = R2_CUSTOM_DOMAIN.replace('https://', '').replace('http://', '');
+          finalUrl = url.toString();
+        } catch (error) {
+          console.error('Failed to replace hostname:', error);
+          finalUrl = presignedUrl; // Fallback to original
+        }
+      }
       
-      presignedUrls[angle] = presignedUrl;
+      console.log('Generated presigned URL:', { angle, originalUrl: presignedUrl, finalUrl });
+      
+      presignedUrls[angle] = finalUrl;
     }
 
     // Log request for monitoring

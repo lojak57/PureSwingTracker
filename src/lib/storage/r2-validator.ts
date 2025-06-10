@@ -62,13 +62,10 @@ export class R2Validator {
    */
   private static getS3Client(): S3Client {
     if (!this.s3Client) {
-      const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
-
       this.s3Client = new S3Client({
         region: 'auto',
         endpoint: this.getR2Endpoint(),
-        bucketEndpoint: isCustomDomain,
-        forcePathStyle: !isCustomDomain,
+        forcePathStyle: true,
         credentials: {
           accessKeyId: R2_ACCESS_KEY,
           secretAccessKey: R2_SECRET_KEY,
@@ -201,6 +198,7 @@ export class R2Validator {
       const s3Client = this.getS3Client();
       const signedUrls: Record<string, string> = {};
       const requestId = crypto.randomUUID();
+      const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
 
       for (const [angle, url] of Object.entries(videoUrls)) {
         if (!url) continue;
@@ -215,7 +213,20 @@ export class R2Validator {
           expiresIn: expiresInSeconds 
         });
         
-        signedUrls[angle] = signedUrl;
+        // For custom domains, replace just the hostname to preserve the signature
+        let finalUrl = signedUrl;
+        if (isCustomDomain) {
+          try {
+            const urlObj = new URL(signedUrl);
+            urlObj.hostname = R2_CUSTOM_DOMAIN.replace('https://', '').replace('http://', '');
+            finalUrl = urlObj.toString();
+          } catch (error) {
+            console.error('Failed to replace hostname:', error);
+            finalUrl = signedUrl; // Fallback to original
+          }
+        }
+        
+        signedUrls[angle] = finalUrl;
       }
 
       const expiresAt = new Date(Date.now() + (expiresInSeconds * 1000));
