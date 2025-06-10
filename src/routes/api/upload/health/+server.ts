@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { S3Client, HeadBucketCommand } from '@aws-sdk/client-s3';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { 
@@ -8,7 +8,9 @@ import {
   R2_ACCESS_KEY,
   R2_SECRET_KEY,
   R2_BUCKET_NAME,
-  CLOUDFLARE_ACCOUNT_ID
+  CLOUDFLARE_ACCOUNT_ID,
+  KV_KV_REST_API_URL,
+  KV_KV_REST_API_TOKEN
 } from '$env/static/private';
 import type { RequestHandler } from '@sveltejs/kit';
 
@@ -23,6 +25,12 @@ const s3Client = new S3Client({
 });
 
 const adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// Create Redis client for rate limiting health check
+const redis = new Redis({
+  url: KV_KV_REST_API_URL,
+  token: KV_KV_REST_API_TOKEN,
+});
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -78,16 +86,16 @@ export const GET: RequestHandler = async () => {
     };
   }
 
-  // 3. Check rate limiting (KV store)
+  // 3. Check rate limiting (Redis store)
   try {
-    const kvStart = Date.now();
+    const redisStart = Date.now();
     const testKey = `health_check:${Date.now()}`;
-    await kv.set(testKey, 'test', { ex: 1 });
-    await kv.get(testKey);
-    await kv.del(testKey);
+    await redis.set(testKey, 'test', { ex: 1 });
+    await redis.get(testKey);
+    await redis.del(testKey);
     checks.rate_limiting = { 
       status: 'pass', 
-      response_time_ms: Date.now() - kvStart 
+      response_time_ms: Date.now() - redisStart 
     };
   } catch (error) {
     checks.rate_limiting = { 

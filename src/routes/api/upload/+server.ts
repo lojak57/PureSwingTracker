@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { 
@@ -9,7 +9,9 @@ import {
   R2_ACCESS_KEY,
   R2_SECRET_KEY,
   R2_BUCKET_NAME,
-  CLOUDFLARE_ACCOUNT_ID
+  CLOUDFLARE_ACCOUNT_ID,
+  KV_KV_REST_API_URL,
+  KV_KV_REST_API_TOKEN
 } from '$env/static/private';
 import { R2Organizer } from '$lib/storage/r2-organizer';
 import type { RequestHandler } from '@sveltejs/kit';
@@ -19,6 +21,12 @@ import type { LogContext } from '$lib/monitoring/logger';
 
 // Create service-role Supabase client
 const adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// Create Redis client for rate limiting
+const redis = new Redis({
+  url: KV_KV_REST_API_URL,
+  token: KV_KV_REST_API_TOKEN,
+});
 
 // Configure S3 client for R2
 const s3Client = new S3Client({
@@ -30,18 +38,18 @@ const s3Client = new S3Client({
   },
 });
 
-// Rate limiting using Vercel KV
+// Rate limiting using Upstash Redis
 const checkRateLimit = async (userId: string): Promise<boolean> => {
   const now = Date.now();
   const key = `rate_limit:${userId}`;
   
   try {
-    // Get current rate limit data from Vercel KV
-    const userLimit = await kv.get<{ count: number; resetTime: number }>(key);
+    // Get current rate limit data from Redis
+    const userLimit = await redis.get<{ count: number; resetTime: number }>(key);
     
     if (!userLimit || now > userLimit.resetTime) {
       // Reset or initialize rate limit window (10 uploads per minute)
-      await kv.set(key, { count: 1, resetTime: now + 60000 }, { ex: 60 });
+      await redis.set(key, { count: 1, resetTime: now + 60000 }, { ex: 60 });
       return true;
     }
     
@@ -51,11 +59,11 @@ const checkRateLimit = async (userId: string): Promise<boolean> => {
     
     // Increment counter in distributed store
     userLimit.count++;
-    await kv.set(key, userLimit, { ex: 60 });
+    await redis.set(key, userLimit, { ex: 60 });
     return true;
   } catch (error) {
     console.warn('Rate limiting check failed, allowing request:', error);
-    return true; // Fail open if KV is unavailable
+    return true; // Fail open if Redis is unavailable
   }
 };
 
