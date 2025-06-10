@@ -2,7 +2,7 @@
   "framework": "sveltekit",
   "regions": ["iad1"],
   "functions": {
-    "src/routes/api/upload/+server.ts": {
+    "**/*": {
       "memory": 1024,
       "maxDuration": 60
     }
