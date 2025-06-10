@@ -50,6 +50,7 @@
 		"@aws-sdk/client-s3": "^3.826.0",
 		"@aws-sdk/s3-request-presigner": "^3.826.0",
 		"@supabase/supabase-js": "^2.50.0",
+		"@sveltejs/adapter-vercel": "^5.7.2",
 		"autoprefixer": "^10.4.21",
 		"daisyui": "^5.0.43",
 		"lucide-svelte": "^0.513.0",
