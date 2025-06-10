@@ -1,8 +1,10 @@
 # Vercel Deployment Guide - Pure Golf
 
+> **✅ Deployment Fixed**: Latest commits include proper Vercel adapter configuration for seamless deployment.
+
 ## 🚀 Quick Deploy
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/pure-golf)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lojak57/PureSwingTracker)
 
 ## 📋 Required Environment Variables
 
@@ -105,8 +107,9 @@ Expected response:
 
 ### **Performance Settings**
 - **Regions**: Configured for `iad1` (US East)
-- **Function Duration**: 30s max for API routes
+- **Adapter**: Official Vercel adapter with Node.js 18.x runtime
 - **Framework**: SvelteKit optimizations enabled
+- **Auto-scaling**: Serverless functions scale automatically
 
 ### **Monitoring**
 - Use Vercel Analytics for performance tracking
