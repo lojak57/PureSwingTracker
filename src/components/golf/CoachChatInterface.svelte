@@ -3,6 +3,7 @@
   import { supabase } from '../../lib/supabase';
   import Button from '../ui/Button.svelte';
   import Card from '../ui/Card.svelte';
+  import VideoUploadChat from './VideoUploadChat.svelte';
   
   export let swingId: string | null = null;
   export let userEmail: string;
@@ -21,8 +22,16 @@
   let newMessage = '';
   let isLoading = false;
   let chatContainer: HTMLElement;
+  let isUploadingVideo = false;
+  let userId: string;
 
-  onMount(() => {
+  onMount(async () => {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      userId = session.user.id;
+    }
+    
     // Welcome message from Coach Oliver
     const welcomeMessage = swingId 
       ? "Hello! I'm Coach Oliver, your personal golf instructor. I see you've uploaded a swing - let's discuss it! Or feel free to ask me anything about golf."
@@ -45,6 +54,33 @@
         chatContainer.scrollTop = chatContainer.scrollHeight;
       }
     }, 100);
+  }
+
+  // Video upload event handlers
+  function handleUploadStarted() {
+    isUploadingVideo = true;
+    addMessage('user', '🎥 Uploading swing video for analysis...');
+  }
+
+  function handleUploadComplete(event: CustomEvent<{ advice: string; confidence: number }>) {
+    isUploadingVideo = false;
+    const { advice, confidence } = event.detail;
+    
+    // Add user message acknowledging upload
+    addMessage('user', '✅ Video uploaded successfully!');
+    
+    // Add Coach Oliver's analysis
+    const coachResponse = `Great swing video! Here's my instant analysis:\n\n${advice}\n\n💡 **Quick Tip**: This is your Quick Fix analysis - perfect for on-course adjustments. For deeper training insights, try uploading 3 angles in Training Mode!`;
+    
+    addMessage('assistant', coachResponse);
+  }
+
+  function handleUploadError(event: CustomEvent<{ error: string }>) {
+    isUploadingVideo = false;
+    const { error } = event.detail;
+    
+    addMessage('user', '❌ Video upload failed');
+    addMessage('assistant', `I'm sorry, there was an issue analyzing your swing: ${error}\n\nPlease try uploading again, or feel free to ask me any golf questions in the meantime!`);
   }
 
   async function sendMessage() {
@@ -85,7 +121,7 @@
       }
 
       const data = await response.json();
-      addMessage('assistant', data.response);
+      addMessage('assistant', data.message);
       
     } catch (error) {
       console.error('Chat error:', error);
@@ -137,7 +173,7 @@
       {#each messages as message (message.id)}
         <div class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}">
           <div class="{message.role === 'user' ? 'user-message' : 'coach-message'} max-w-md">
-            <p class="text-sm leading-relaxed">{message.content}</p>
+            <p class="text-sm leading-relaxed whitespace-pre-line">{message.content}</p>
             <span class="text-xs opacity-60 mt-2 block">
               {message.timestamp.toLocaleTimeString()}
             </span>
@@ -161,18 +197,31 @@
 
     <!-- Message Input -->
     <div class="glass-sage p-6 border-t border-surface-border/20">
+      <!-- Video Upload Component -->
+      {#if userId}
+        <div class="mb-4">
+          <VideoUploadChat 
+            {userId}
+            isProcessing={isUploadingVideo}
+            on:uploadStarted={handleUploadStarted}
+            on:uploadComplete={handleUploadComplete}
+            on:uploadError={handleUploadError}
+          />
+        </div>
+      {/if}
+      
       <div class="flex space-x-4">
         <textarea
           bind:value={newMessage}
           on:keypress={handleKeyPress}
           placeholder="Ask Coach Oliver anything about golf..."
           class="flex-1 input-field resize-none h-12 py-3"
-          disabled={isLoading}
+          disabled={isLoading || isUploadingVideo}
         ></textarea>
         <Button
           variant="primary"
           on:click={sendMessage}
-          disabled={!newMessage.trim() || isLoading}
+          disabled={!newMessage.trim() || isLoading || isUploadingVideo}
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -185,20 +234,30 @@
         <button 
           class="px-3 py-1 text-xs glass rounded-full hover:glass-sage transition-all text-onSurface-medium hover:text-onSurface-strong"
           on:click={() => newMessage = "How can I improve my driver accuracy?"}
+          disabled={isLoading || isUploadingVideo}
         >
           Driver tips
         </button>
         <button 
           class="px-3 py-1 text-xs glass rounded-full hover:glass-sage transition-all text-onSurface-medium hover:text-onSurface-strong"
           on:click={() => newMessage = "What should I practice to lower my handicap?"}
+          disabled={isLoading || isUploadingVideo}
         >
           Lower handicap
         </button>
         <button 
           class="px-3 py-1 text-xs glass rounded-full hover:glass-sage transition-all text-onSurface-medium hover:text-onSurface-strong"
           on:click={() => newMessage = "Explain how Pure Golf's video analysis works"}
+          disabled={isLoading || isUploadingVideo}
         >
           How Pure works
+        </button>
+        <button 
+          class="px-3 py-1 text-xs glass rounded-full hover:glass-sage transition-all text-onSurface-medium hover:text-onSurface-strong"
+          on:click={() => newMessage = "Tell me about Quick Fix vs Training Mode"}
+          disabled={isLoading || isUploadingVideo}
+        >
+          About modes
         </button>
       </div>
     </div>

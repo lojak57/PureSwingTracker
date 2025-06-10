@@ -5,6 +5,7 @@
   import { AuthService } from '../../../services/auth';
   import { SwingService } from '../../../services/swing';
   import VideoRecorder from '../../../components/ui/VideoRecorder.svelte';
+  import FileUploader from '../../../components/ui/FileUploader.svelte';
   import ProgressWizard from '../../../components/ui/ProgressWizard.svelte';
   import type { SwingCategory } from '../../../lib/supabase';
   import type { SwingSession, AngleType } from '../../../services/swing';
@@ -16,6 +17,7 @@
   let category: SwingCategory;
   let error = '';
   let isUploading = false;
+  let uploadMode: 'record' | 'upload' = 'record';
 
   // Recording state using SwingService
   let swingSession: SwingSession | null = null;
@@ -87,8 +89,14 @@
 
     category = categoryParam as SwingCategory;
     
+    // Check if mode is specified in URL
+    const modeParam = $page.url.searchParams.get('mode');
+    if (modeParam === 'upload') {
+      uploadMode = 'upload';
+    }
+    
     // Initialize swing session
-    swingSession = SwingService.createSession(category);
+    swingSession = SwingService.createSession(category, uploadMode);
     isLoading = false;
   });
 
@@ -120,9 +128,45 @@
 
   const handleRetakeVideo = (angleId: string) => {
     if (!swingSession) return;
-    swingSession.recordings[angleId as AngleType] = null;
-    swingSession.state = 'recording';
-    currentStep = 1; // Go back to recording
+    swingSession = SwingService.removeRecording(swingSession, angleId as AngleType);
+    currentStep = 1; // Go back to recording/uploading
+  };
+
+  const handleFileSelected = (event: CustomEvent<{angleId: string, file: File}>) => {
+    if (!swingSession) return;
+    
+    const { angleId, file } = event.detail;
+    
+    // Validate file
+    const validation = SwingService.validateRecording(file);
+    if (!validation.valid) {
+      error = validation.error || 'Invalid file';
+      return;
+    }
+    
+    // Add file to session
+    swingSession = SwingService.addFileUpload(swingSession, angleId as AngleType, file);
+    
+    // Clear any previous errors
+    error = '';
+  };
+
+  const handleFileRemoved = (event: CustomEvent<{angleId: string}>) => {
+    if (!swingSession) return;
+    swingSession = SwingService.removeRecording(swingSession, event.detail.angleId as AngleType);
+  };
+
+  const handleFileError = (event: CustomEvent<{message: string}>) => {
+    error = event.detail.message;
+  };
+
+  const switchUploadMode = (mode: 'record' | 'upload') => {
+    uploadMode = mode;
+    if (swingSession) {
+      swingSession = SwingService.createSession(category, mode);
+      currentStep = 0; // Reset to setup
+      error = '';
+    }
   };
 
   const handleUpload = async () => {
@@ -152,7 +196,7 @@
 </script>
 
 <svelte:head>
-  <title>Record {category} Swing - Pure Golf</title>
+  <title>{uploadMode === 'record' ? 'Record' : 'Upload'} {category} Swing - Pure Golf</title>
 </svelte:head>
 
 {#if isLoading}
@@ -195,11 +239,52 @@
       {#if currentStep === 0}
         <!-- Setup Instructions -->
         <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <h2 class="text-xl font-semibold mb-4">Recording Setup</h2>
+          <h2 class="text-xl font-semibold mb-4">Setup Your Swing Analysis</h2>
+          
+          <!-- Mode Selection -->
+          <div class="mb-6">
+            <h3 class="font-medium text-gray-900 mb-3">Choose Your Method</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <button
+                on:click={() => switchUploadMode('record')}
+                class="p-4 border-2 rounded-lg text-left transition-colors
+                  {uploadMode === 'record' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'}"
+              >
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl">📹</span>
+                  <div>
+                    <h4 class="font-medium text-gray-900">Record Now</h4>
+                    <p class="text-sm text-gray-600">Use your camera to record live</p>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                on:click={() => switchUploadMode('upload')}
+                class="p-4 border-2 rounded-lg text-left transition-colors
+                  {uploadMode === 'upload' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'}"
+              >
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl">📁</span>
+                  <div>
+                    <h4 class="font-medium text-gray-900">Upload Files</h4>
+                    <p class="text-sm text-gray-600">Choose videos from your device</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+          
           <div class="space-y-4">
             <p class="text-gray-600">
-              You'll record three different camera angles. Each video should be 10-15 seconds long, 
-              capturing your complete swing motion.
+              {uploadMode === 'record' 
+                ? "You'll record three different camera angles. Each video should be 10-15 seconds long, capturing your complete swing motion."
+                : "Upload videos from your device for each camera angle. Maximum 200MB per video."
+              }
             </p>
             
             <div class="grid gap-4">
@@ -225,19 +310,51 @@
               on:click={() => currentStep = 1}
               class="btn-primary"
             >
-              Start Recording
+              {uploadMode === 'record' ? 'Start Recording' : 'Start Uploading'}
             </button>
           </div>
         </div>
 
       {:else if currentStep === 1}
-        <!-- Recording Interface -->
-        <VideoRecorder
-          {angles}
-          recordings={swingSession?.recordings || {}}
-          on:recordingComplete={(e: CustomEvent<{angleId: string, blob: Blob}>) => handleRecordingComplete(e.detail.angleId, e.detail.blob)}
-          on:error={(e: CustomEvent<{message: string}>) => error = e.detail.message}
-        />
+        <!-- Recording/Upload Interface -->
+        {#if uploadMode === 'record'}
+          <VideoRecorder
+            {angles}
+            recordings={swingSession?.recordings || {}}
+            on:recordingComplete={(e: CustomEvent<{angleId: string, blob: Blob}>) => handleRecordingComplete(e.detail.angleId, e.detail.blob)}
+            on:error={(e: CustomEvent<{message: string}>) => error = e.detail.message}
+          />
+        {:else}
+          <div class="bg-white rounded-xl shadow-sm p-6">
+            <FileUploader
+              {angles}
+              existingFiles={swingSession?.recordings || { down_line: null, face_on: null, overhead: null }}
+              disabled={isUploading}
+              on:fileSelected={handleFileSelected}
+              on:fileRemoved={handleFileRemoved}
+              on:error={handleFileError}
+            />
+            
+            <!-- Navigation Buttons -->
+            <div class="flex justify-between mt-6">
+              <button
+                on:click={() => currentStep = 0}
+                disabled={isUploading}
+                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Back to Setup
+              </button>
+              
+              <button
+                on:click={() => currentStep = 2}
+                disabled={!isAllRecorded || isUploading}
+                class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Review & Upload
+              </button>
+            </div>
+          </div>
+        {/if}
 
       {:else if currentStep === 2}
         <!-- Review & Upload -->

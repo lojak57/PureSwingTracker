@@ -15,6 +15,7 @@ declare module '$env/static/private' {
 	export const R2_SECRET_KEY: string;
 	export const R2_BUCKET_NAME: string;
 	export const CLOUDFLARE_ACCOUNT_ID: string;
+	export const CLOUDFLARE_API_TOKEN: string;
 	export const OPENAI_API_KEY: string;
 }
 
@@ -31,6 +32,8 @@ declare module '$env/static/private' {
 	export const R2_SECRET_KEY: string;
 	export const R2_BUCKET_NAME: string;
 	export const CLOUDFLARE_ACCOUNT_ID: string;
+	export const CLOUDFLARE_API_TOKEN: string;
+	export const R2_CUSTOM_DOMAIN: string;
 	export const JWT_SECRET: string;
 }
 

@@ -7,10 +7,11 @@
   export let icon: string;
   export let gradient: string;
   export let accent: string;
+  export let showBothOptions = false;
   export let disabled = false;
 
   const dispatch = createEventDispatcher<{
-    select: { categoryId: string };
+    select: { categoryId: string; mode?: 'record' | 'upload' };
   }>();
 
   function handleClick() {
@@ -48,9 +49,26 @@
     </div>
     
     <!-- Call to action -->
-    <div class="btn-gradient text-sm px-6 py-3 rounded-xl bg-gradient-to-r {gradient} text-white font-semibold shadow-lg group-hover:shadow-xl transition-shadow">
-      Start Recording
-    </div>
+    {#if showBothOptions}
+      <div class="space-y-3">
+        <button
+          on:click|stopPropagation={() => dispatch('select', { categoryId: id, mode: 'record' })}
+          class="w-full btn-gradient text-sm px-4 py-2 rounded-lg bg-gradient-to-r {gradient} text-white font-semibold shadow-lg hover:shadow-xl transition-shadow"
+        >
+          📹 Record Now
+        </button>
+        <button
+          on:click|stopPropagation={() => dispatch('select', { categoryId: id, mode: 'upload' })}
+          class="w-full btn-gradient text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-gray-500 to-gray-600 text-white font-semibold shadow-lg hover:shadow-xl transition-shadow"
+        >
+          📁 Upload Files
+        </button>
+      </div>
+    {:else}
+      <div class="btn-gradient text-sm px-6 py-3 rounded-xl bg-gradient-to-r {gradient} text-white font-semibold shadow-lg group-hover:shadow-xl transition-shadow">
+        Start Recording
+      </div>
+    {/if}
     
     <!-- Arrow indicator -->
     <svg 

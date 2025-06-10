@@ -6,12 +6,13 @@ export type AngleType = 'down_line' | 'face_on' | 'overhead';
 
 export interface SwingSession {
   category: SwingCategory;
-  recordings: Record<AngleType, Blob | null>;
+  recordings: Record<AngleType, Blob | File | null>;
   currentAngle: AngleType;
   state: RecordingState;
   uploadProgress: Record<AngleType, number>;
   uploadUrls?: VideoUrls;
   swingId?: string;
+  uploadMode: 'record' | 'upload';
 }
 
 export interface UploadResponse {
@@ -34,7 +35,7 @@ export class SwingService {
   /**
    * Initialize a new swing recording session
    */
-  static createSession(category: SwingCategory): SwingSession {
+  static createSession(category: SwingCategory, mode: 'record' | 'upload' = 'record'): SwingSession {
     return {
       category,
       recordings: {
@@ -48,7 +49,8 @@ export class SwingService {
         down_line: 0,
         face_on: 0,
         overhead: 0
-      }
+      },
+      uploadMode: mode
     };
   }
 
@@ -73,6 +75,46 @@ export class SwingService {
     if (allRecorded) {
       updatedSession.state = 'complete';
     }
+
+    return updatedSession;
+  }
+
+  /**
+   * Add a file upload to the session
+   */
+  static addFileUpload(session: SwingSession, angle: AngleType, file: File): SwingSession {
+    const updatedSession = {
+      ...session,
+      recordings: {
+        ...session.recordings,
+        [angle]: file
+      }
+    };
+
+    // Check if all recordings are complete
+    const allRecorded = Object.values(updatedSession.recordings).every(r => r !== null);
+    if (allRecorded) {
+      updatedSession.state = 'complete';
+    }
+
+    return updatedSession;
+  }
+
+  /**
+   * Remove a recording/file from the session
+   */
+  static removeRecording(session: SwingSession, angle: AngleType): SwingSession {
+    const updatedSession = {
+      ...session,
+      recordings: {
+        ...session.recordings,
+        [angle]: null
+      }
+    };
+
+    // Update state based on remaining recordings
+    const hasAnyRecording = Object.values(updatedSession.recordings).some(r => r !== null);
+    updatedSession.state = hasAnyRecording ? 'recorded' : 'setup';
 
     return updatedSession;
   }
@@ -112,10 +154,10 @@ export class SwingService {
   }
 
   /**
-   * Upload video blob to presigned URL with progress tracking
+   * Upload video blob/file to presigned URL with progress tracking
    */
   static async uploadVideo(
-    blob: Blob, 
+    blob: Blob | File, 
     presignedUrl: string,
     onProgress?: (progress: number) => void
   ): Promise<boolean> {
@@ -253,9 +295,9 @@ export class SwingService {
   }
 
   /**
-   * Validate video blob constraints
+   * Validate video blob/file constraints
    */
-  static validateRecording(blob: Blob): { valid: boolean; error?: string } {
+  static validateRecording(blob: Blob | File): { valid: boolean; error?: string } {
     // Check file size (max 200MB)
     const maxSize = 200 * 1024 * 1024; // 200MB in bytes
     if (blob.size > maxSize) {

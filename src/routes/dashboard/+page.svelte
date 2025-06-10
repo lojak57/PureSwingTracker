@@ -35,8 +35,9 @@
     await AuthService.logout();
   };
 
-  const handleCategorySelect = (event: CustomEvent<{ categoryId: string }>) => {
-    goto(`/swing/record?category=${event.detail.categoryId}`);
+  const handleCategorySelect = (event: CustomEvent<{ categoryId: string; mode?: 'record' | 'upload' }>) => {
+    const { categoryId, mode = 'record' } = event.detail;
+    goto(`/swing/record?category=${categoryId}&mode=${mode}`);
   };
 
   const handleStartChat = () => {
@@ -133,6 +134,7 @@
               icon={category.icon}
               gradient={category.gradient}
               accent={category.accent}
+              showBothOptions={true}
               on:select={handleCategorySelect}
             />
           {/each}
@@ -211,7 +213,18 @@
       <!-- Augusta-Style Quick Navigation -->
       <div class="mt-20">
         <h3 class="text-3xl font-heading font-bold text-onSurface-strong mb-8 text-center">Your Golf Journey</h3>
-        <div class="grid md:grid-cols-3 gap-8">
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <!-- Round Tracker - NEW! -->
+          <a href="/rounds" class="drill-card group">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-slow">
+              <svg class="w-8 h-8 text-surface" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m-6 3l6-3" />
+              </svg>
+            </div>
+            <h4 class="text-2xl font-heading font-bold text-onSurface-strong mb-3 group-hover:text-primary-700 transition-colors">Track Rounds</h4>
+            <p class="text-onSurface-medium font-body leading-relaxed">GPS-powered round tracking with AI caddy recommendations</p>
+          </a>
+
           <a href="/drills" class="drill-card group">
             <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-slow">
               <svg class="w-8 h-8 text-surface" fill="none" stroke="currentColor" viewBox="0 0 24 24">

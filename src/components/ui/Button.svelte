@@ -15,8 +15,8 @@
     size === 'md' ? 'px-6 py-3 text-base rounded-xl' : '',
     size === 'lg' ? 'px-8 py-4 text-lg rounded-xl' : '',
     // Style variants
-    variant === 'primary' ? 'btn-primary focus:ring-primary-500' : '',
-    variant === 'secondary' ? 'btn-secondary focus:ring-primary-300' : '',
+    variant === 'primary' ? 'btn-primary focus:ring-2 focus:ring-blue-500' : '',
+    variant === 'secondary' ? 'btn-secondary focus:ring-2 focus:ring-blue-300' : '',
     variant === 'glass' ? 'glass text-primary-700 hover:glass-sage hover:-translate-y-1 hover:shadow-lg' : '',
     variant === 'gradient' && gradient ? `bg-gradient-to-r ${gradient} text-white hover:-translate-y-1 hover:shadow-lg` : '',
     // State modifiers

@@ -14,17 +14,8 @@ interface ChatRequest {
   chat_history?: ChatMessage[];
 }
 
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ request }) => {
   try {
-    const swingId = params.swing_id;
-    
-    if (!swingId) {
-      return json(
-        { error: { code: 'MISSING_SWING_ID', message: 'Swing ID is required' } },
-        { status: 400 }
-      );
-    }
-
     // Parse request body
     const body: ChatRequest = await request.json();
     const { message, chat_history = [] } = body;
@@ -48,6 +39,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Extract and verify JWT token
     const token = authHeader.split(' ')[1];
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    console.log('AUTH', { token: token?.slice(0,8), authError });
     
     if (authError || !user) {
       return json(
@@ -56,44 +48,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    // For general chat, skip swing lookup
-    let swing = null;
-    let profile = null;
-    
-    if (swingId !== 'general') {
-      // Try to fetch swing data (may not exist yet)
-      const { data: swingData } = await supabase
-        .from('pure.swings')
-        .select('*')
-        .eq('id', swingId)
-        .eq('user_id', user.id)
-        .single();
-      swing = swingData;
-    }
-
-    // Try to get user profile for context (may not exist yet)
-    const { data: profileData } = await supabase
-      .from('pure.profiles')
-      .select('handicap, goals, name')
+    // Get user profile for context
+    const { data: profile } = await supabase
+      .from('users')
+      .select('handicap, goals')
       .eq('id', user.id)
       .single();
-    profile = profileData;
 
-    // Prepare context for GPT
-    const swingContext = swing ? {
-      category: swing.category,
-      flaws: swing.ai_flaws,
-      summary: swing.ai_summary,
-      user_handicap: profile?.handicap,
-      user_goals: profile?.goals
-    } : {
-      user_handicap: profile?.handicap,
-      user_goals: profile?.goals
-    };
-
-    // Create system prompt for Coach Oliver  
-    const systemPrompt = swingId === 'general' 
-      ? `You are Coach Oliver, an experienced PGA professional with 20+ years of teaching elite golfers. You're warm but authoritative, with deep knowledge of golf fundamentals, course strategy, and equipment.
+    // Create system prompt for Coach Oliver general conversations
+    const systemPrompt = `You are Coach Oliver, an experienced PGA professional with 20+ years of teaching elite golfers. You're warm but authoritative, with deep knowledge of golf fundamentals, course strategy, and equipment.
 
 You're having a general conversation about golf. Here's what you know about the user:
 - Email: ${user.email}
@@ -107,38 +70,6 @@ Your communication style:
 - Provide specific, actionable advice
 - Ask follow-up questions to understand their game better
 - Explain how Pure Golf's 3-angle video analysis can help when relevant
-
-Keep responses conversational and under 150 words.`
-      : swing ? `You are Coach Oliver, an experienced PGA professional with 20+ years of teaching elite golfers. 
-
-You're discussing a ${swing.category} swing analysis. Here's what you know:
-- Swing Category: ${swing.category}
-- AI Analysis: ${swing.ai_flaws ? JSON.stringify(swing.ai_flaws) : 'Analysis pending'}
-- Previous Summary: ${swing.ai_summary || 'No previous analysis available'}
-- User Handicap: ${profile?.handicap || 'Not specified'}
-- User Goals: ${profile?.goals || 'Not specified'}
-
-Your communication style:
-- Professional yet approachable, drawing from tour-level experience
-- Focus on fundamentals and course management
-- Provide specific, actionable advice
-- Reference the AI analysis when available
-- Always end with clear next steps
-
-Keep responses conversational and under 150 words.` : `You are Coach Oliver, an experienced PGA professional with 20+ years of teaching elite golfers. You're warm but authoritative, with deep knowledge of golf fundamentals, course strategy, and equipment.
-
-You're having a conversation about golf. Here's what you know about the user:
-- Email: ${user.email}
-- Handicap: ${profile?.handicap || 'Not specified'}
-- Goals: ${profile?.goals || 'Not specified'}
-- App Context: They're using Pure Golf, an AI-powered swing analysis platform
-
-Your communication style:
-- Professional yet approachable
-- Draw from experience with touring professionals and amateurs
-- Provide specific, actionable advice
-- Ask follow-up questions to understand their game better
-- Explain how Pure Golf's swing analysis can help when relevant
 
 Keep responses conversational and under 150 words.`;
 
@@ -167,7 +98,7 @@ Keep responses conversational and under 150 words.`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-2024-05-13',
         messages,
         max_tokens: 200,
         temperature: 0.7,
@@ -176,7 +107,8 @@ Keep responses conversational and under 150 words.`;
     });
 
     if (!openAIResponse.ok) {
-      console.error('OpenAI API error:', await openAIResponse.text());
+      const txt = await openAIResponse.text();
+      console.error('OPENAI ERR', openAIResponse.status, txt);
       return json(
         { error: { code: 'AI_SERVICE_ERROR', message: 'Failed to generate response' } },
         { status: 500 }
@@ -193,20 +125,19 @@ Keep responses conversational and under 150 words.`;
       );
     }
 
-    // Store chat message in database (use NULL for general chat)
-    const actualSwingId = swingId === 'general' ? null : swingId;
+    // Store general chat messages with swing_id as 'general'
     const { error: insertError } = await supabase
       .from('pure.chat_messages')
       .insert([
         {
-          swing_id: actualSwingId,
+          swing_id: 'general',
           user_id: user.id,
           role: 'user',
           content: message,
           created_at: new Date().toISOString()
         },
         {
-          swing_id: actualSwingId,
+          swing_id: 'general',
           user_id: user.id,
           role: 'assistant',
           content: assistantMessage,
@@ -215,7 +146,7 @@ Keep responses conversational and under 150 words.`;
       ]);
 
     if (insertError) {
-      console.error('Error storing chat messages:', insertError);
+      console.error('INSERT ERR', insertError);
       // Continue anyway - don't fail the response
     }
 
@@ -225,7 +156,7 @@ Keep responses conversational and under 150 words.`;
     });
 
   } catch (error) {
-    console.error('Error in chat endpoint:', error);
+    console.error('Error in general chat endpoint:', error);
     return json(
       { 
         error: { 
@@ -238,18 +169,9 @@ Keep responses conversational and under 150 words.`;
   }
 };
 
-// Get chat history for a swing
-export const GET: RequestHandler = async ({ params, request }) => {
+// Get general chat history
+export const GET: RequestHandler = async ({ request }) => {
   try {
-    const swingId = params.swing_id;
-    
-    if (!swingId) {
-      return json(
-        { error: { code: 'MISSING_SWING_ID', message: 'Swing ID is required' } },
-        { status: 400 }
-      );
-    }
-
     // Validate authentication
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -270,16 +192,16 @@ export const GET: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    // Fetch chat history
+    // Fetch general chat history
     const { data: messages, error: fetchError } = await supabase
       .from('pure.chat_messages')
       .select('*')
-      .eq('swing_id', swingId)
+      .eq('swing_id', 'general')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true });
 
     if (fetchError) {
-      console.error('Error fetching chat history:', fetchError);
+      console.error('Error fetching general chat history:', fetchError);
       return json(
         { error: { code: 'DATABASE_ERROR', message: 'Failed to fetch chat history' } },
         { status: 500 }
@@ -291,7 +213,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
     });
 
   } catch (error) {
-    console.error('Error getting chat history:', error);
+    console.error('Error getting general chat history:', error);
     return json(
       { 
         error: { 
