@@ -1,12 +1,6 @@
 {
   "framework": "sveltekit",
   "regions": ["iad1"],
-  "functions": {
-    "**/*": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  },
   "github": {
     "silent": true
   }
