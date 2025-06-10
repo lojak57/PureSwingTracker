@@ -10,7 +10,7 @@ const config = {
 	kit: {
 		// Using Vercel adapter for optimal deployment
 		adapter: adapter({
-			runtime: 'nodejs18.x',
+			runtime: 'nodejs20.x',
 			regions: ['iad1']
 		})
 	}
