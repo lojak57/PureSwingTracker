@@ -56,8 +56,7 @@ export const POST: RequestHandler = async ({ request }) => {
       : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
     // Initialize S3 client for Cloudflare R2.
-    // For custom domains, we need to handle URL construction differently
-    // because AWS SDK still prepends bucket name as subdomain.
+    // Use custom domain as endpoint if available, so signatures are calculated correctly
     
     const isCustomDomain = Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com');
     
@@ -69,10 +68,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const s3Client = new S3Client({
       region: 'auto',
-      endpoint: isCustomDomain 
-        ? `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`  // Use default endpoint for signing
-        : r2Endpoint,
-      forcePathStyle: true,  // Always use path style for consistent behavior
+      endpoint: r2Endpoint,
+      bucketEndpoint: isCustomDomain,  // Tell SDK the endpoint already points to bucket
+      forcePathStyle: !isCustomDomain, // Use path style only for default endpoint
       credentials: {
         accessKeyId: R2_ACCESS_KEY,
         secretAccessKey: R2_SECRET_KEY,
@@ -102,19 +100,9 @@ export const POST: RequestHandler = async ({ request }) => {
         ContentType: 'video/webm',
       });
 
-      let presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
       
-      console.log('Before URL replacement:', { presignedUrl, isCustomDomain });
-      
-      // If using custom domain, replace the default R2 endpoint with custom domain
-      if (isCustomDomain) {
-        const originalUrl = presignedUrl;
-        presignedUrl = presignedUrl.replace(
-          `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET_NAME}`,
-          `https://${R2_CUSTOM_DOMAIN}`
-        );
-        console.log('URL replacement:', { originalUrl, newUrl: presignedUrl, replaced: originalUrl !== presignedUrl });
-      }
+      console.log('Generated presigned URL:', { angle, presignedUrl });
       
       presignedUrls[angle] = presignedUrl;
     }
