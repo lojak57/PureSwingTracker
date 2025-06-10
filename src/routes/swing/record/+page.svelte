@@ -176,7 +176,10 @@
       isUploading = true;
       error = '';
       
-      const result = await SwingService.uploadSession(swingSession, (angle, progress) => {
+      // Determine mode from URL parameters or default to training
+      const mode = $page.url.searchParams.get('mode') === 'quick' ? 'quick' : 'training';
+      
+      const result = await SwingService.uploadSession(swingSession, mode, (angle, progress) => {
         uploadProgress[angle] = progress;
       });
       

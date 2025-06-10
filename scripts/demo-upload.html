@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pure Golf Upload Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 24px;
+      margin: 20px 0;
+    }
+    .status {
+      padding: 12px;
+      border-radius: 6px;
+      margin: 10px 0;
+    }
+    .status.success { background: #dcfce7; color: #166534; }
+    .status.error { background: #fef2f2; color: #dc2626; }
+    .status.info { background: #dbeafe; color: #1d4ed8; }
+    .upload-zone {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      background: white;
+      margin: 16px 0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-zone:hover {
+      border-color: #3b82f6;
+      background: #f8fafc;
+    }
+    .upload-zone.dragover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #9ca3af; cursor: not-allowed; }
+    input[type="file"] { display: none; }
+    .file-info {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0;
+    }
+    .progress-bar {
+      background: #e5e7eb;
+      border-radius: 4px;
+      height: 8px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+    .progress-fill {
+      background: #3b82f6;
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .feature-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #d1d5db;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle.active { background: #3b82f6; }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle.active::after { transform: translateX(20px); }
+  </style>
+</head>
+<body>
+  <h1>🏌️ Pure Golf Upload Demo</h1>
+  
+  <div class="container">
+    <h2>Feature Flags</h2>
+    <div class="feature-toggle">
+      <div class="toggle" id="backendToggle"></div>
+      <label>Use Backend Upload Proxy</label>
+    </div>
+    <div id="currentMode" class="status info">Current: Feature flag detection...</div>
+  </div>
+
+  <div class="container">
+    <h2>System Health</h2>
+    <button onclick="checkHealth()">Check Health</button>
+    <div id="healthStatus"></div>
+  </div>
+
+  <div class="container">
+    <h2>File Upload Test</h2>
+    
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <div>📹 Click to select video files or drag & drop</div>
+      <div style="font-size: 14px; color: #6b7280; margin-top: 8px;">
+        Select up to 3 video files (down_line, face_on, overhead)
+      </div>
+    </div>
+    
+    <input type="file" id="fileInput" accept="video/*" multiple>
+    
+    <div id="fileList"></div>
+    
+    <div style="margin: 16px 0;">
+      <label>Category:</label>
+      <select id="category" style="margin-left: 8px; padding: 8px;">
+        <option value="iron">Iron</option>
+        <option value="wood">Wood</option>
+        <option value="wedge">Wedge</option>
+        <option value="chip">Chip</option>
+        <option value="putt">Putt</option>
+      </select>
+      
+      <label style="margin-left: 16px;">Mode:</label>
+      <select id="mode" style="margin-left: 8px; padding: 8px;">
+        <option value="training">Training</option>
+        <option value="quick">Quick</option>
+      </select>
+    </div>
+    
+    <button id="uploadBtn" onclick="uploadFiles()" disabled>Upload Files</button>
+    <div id="uploadStatus"></div>
+  </div>
+
+  <div class="container">
+    <h2>Test Results</h2>
+    <div id="testResults"></div>
+  </div>
+
+  <script>
+    let selectedFiles = {};
+    const angles = ['down_line', 'face_on', 'overhead'];
+    
+    // Feature flag management
+    function updateFeatureFlag() {
+      const useBackend = localStorage.getItem('ff_backend_upload') === 'true';
+      const toggle = document.getElementById('backendToggle');
+      const modeDisplay = document.getElementById('currentMode');
+      
+      toggle.classList.toggle('active', useBackend);
+      modeDisplay.textContent = `Current: ${useBackend ? 'Backend Upload Proxy' : 'Presigned URLs'}`;
+      modeDisplay.className = `status ${useBackend ? 'success' : 'info'}`;
+    }
+    
+    document.getElementById('backendToggle').addEventListener('click', function() {
+      const current = localStorage.getItem('ff_backend_upload') === 'true';
+      localStorage.setItem('ff_backend_upload', (!current).toString());
+      updateFeatureFlag();
+    });
+    
+    // Health check
+    async function checkHealth() {
+      const statusDiv = document.getElementById('healthStatus');
+      statusDiv.innerHTML = '<div class="status info">Checking health...</div>';
+      
+      try {
+        const response = await fetch('/api/upload/health');
+        const health = await response.json();
+        
+        let statusClass = 'success';
+        if (health.status === 'degraded') statusClass = 'info';
+        if (health.status === 'unhealthy') statusClass = 'error';
+        
+        statusDiv.innerHTML = `
+          <div class="status ${statusClass}">
+            Overall Status: ${health.status.toUpperCase()}
+          </div>
+          <div style="margin-top: 12px;">
+            <div>🗄️ R2 Storage: ${health.checks.r2_connectivity.status}</div>
+            <div>🔐 Authentication: ${health.checks.supabase_auth.status}</div>
+            <div>⚡ Rate Limiting: ${health.checks.rate_limiting.status}</div>
+            <div>💾 Memory: ${health.checks.memory.status} (${health.checks.memory.usage_mb}MB)</div>
+          </div>
+        `;
+      } catch (error) {
+        statusDiv.innerHTML = `<div class="status error">Health check failed: ${error.message}</div>`;
+      }
+    }
+    
+    // File handling
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      handleFiles(e.target.files);
+    });
+    
+    // Drag and drop
+    const uploadZone = document.querySelector('.upload-zone');
+    uploadZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+    
+    uploadZone.addEventListener('dragleave', function() {
+      uploadZone.classList.remove('dragover');
+    });
+    
+    uploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+    
+    function handleFiles(files) {
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = '';
+      selectedFiles = {};
+      
+      Array.from(files).forEach((file, index) => {
+        const angle = angles[index] || `file_${index}`;
+        selectedFiles[angle] = file;
+        
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'file-info';
+        fileDiv.innerHTML = `
+          <div><strong>${angle}:</strong> ${file.name}</div>
+          <div>Size: ${(file.size / 1024 / 1024).toFixed(2)} MB | Type: ${file.type}</div>
+        `;
+        fileList.appendChild(fileDiv);
+      });
+      
+      document.getElementById('uploadBtn').disabled = Object.keys(selectedFiles).length === 0;
+    }
+    
+    // Upload files
+    async function uploadFiles() {
+      const uploadBtn = document.getElementById('uploadBtn');
+      const statusDiv = document.getElementById('uploadStatus');
+      const resultsDiv = document.getElementById('testResults');
+      
+      uploadBtn.disabled = true;
+      statusDiv.innerHTML = '<div class="status info">Preparing upload...</div>';
+      
+      try {
+        const formData = new FormData();
+        formData.append('category', document.getElementById('category').value);
+        formData.append('mode', document.getElementById('mode').value);
+        
+        Object.entries(selectedFiles).forEach(([angle, file]) => {
+          formData.append(`file_${angle}`, file);
+        });
+        
+        statusDiv.innerHTML = `
+          <div class="status info">Uploading via ${localStorage.getItem('ff_backend_upload') === 'true' ? 'Backend Proxy' : 'Presigned URLs'}...</div>
+          <div class="progress-bar"><div class="progress-fill" style="width: 0%"></div></div>
+        `;
+        
+        const startTime = Date.now();
+        
+        // Mock progress for demo
+        const progressBar = statusDiv.querySelector('.progress-fill');
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress > 90) progress = 90;
+          progressBar.style.width = `${progress}%`;
+        }, 200);
+        
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer demo-token' // This will fail auth, but tests the endpoint
+          },
+          body: formData
+        });
+        
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        
+        const duration = Date.now() - startTime;
+        const result = await response.json();
+        
+        let statusClass = response.ok ? 'success' : 'error';
+        
+        statusDiv.innerHTML = `
+          <div class="status ${statusClass}">
+            Upload ${response.ok ? 'completed' : 'failed'} (${duration}ms)
+          </div>
+        `;
+        
+        // Show results
+        resultsDiv.innerHTML = `
+          <div class="file-info">
+            <div><strong>Response:</strong> ${response.status} ${response.statusText}</div>
+            <div><strong>Duration:</strong> ${duration}ms</div>
+            <div><strong>Feature Flag:</strong> ${localStorage.getItem('ff_backend_upload') === 'true' ? 'Backend Proxy' : 'Presigned URLs'}</div>
+            <div><strong>Result:</strong></div>
+            <pre style="background: #f3f4f6; padding: 12px; border-radius: 4px; overflow: auto; margin-top: 8px;">${JSON.stringify(result, null, 2)}</pre>
+          </div>
+        `;
+        
+      } catch (error) {
+        statusDiv.innerHTML = `<div class="status error">Upload failed: ${error.message}</div>`;
+      } finally {
+        uploadBtn.disabled = false;
+      }
+    }
+    
+    // Initialize
+    updateFeatureFlag();
+    checkHealth();
+  </script>
+</body>
+</html> 

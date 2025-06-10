@@ -1,5 +1,6 @@
 import { supabase } from '$lib/supabase';
 import type { SwingCategory, VideoUrls } from '$lib/supabase';
+import { featureFlags } from '$lib/feature-flags';
 
 export type RecordingState = 'setup' | 'recording' | 'recorded' | 'complete';
 export type AngleType = 'down_line' | 'face_on' | 'overhead';
@@ -190,12 +191,123 @@ export class SwingService {
   }
 
   /**
-   * Upload all recordings in a session
+   * Upload files using the new backend proxy (Feature Flag)
+   */
+  static async uploadSessionBackend(
+    session: SwingSession,
+    mode: 'training' | 'quick' = 'training',
+    onProgress?: (progress: number) => void
+  ): Promise<UploadResponse> {
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append('category', session.category);
+      formData.append('mode', mode);
+
+      // Get the expected angles based on mode
+      const expectedAngles = mode === 'quick' ? ['single'] : ['down_line', 'face_on', 'overhead'];
+      
+      // Add files to FormData
+      let hasAllFiles = true;
+      for (const angle of expectedAngles) {
+        const recording = session.recordings[angle as AngleType];
+        if (!recording) {
+          hasAllFiles = false;
+          break;
+        }
+        
+        // Convert Blob to File if needed
+        const file = recording instanceof File 
+          ? recording 
+          : new File([recording], `${angle}.webm`, { type: recording.type });
+          
+        formData.append(`file_${angle}`, file);
+      }
+
+      if (!hasAllFiles) {
+        return { success: false, error: 'Missing required video files' };
+      }
+
+      // Upload with progress tracking
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable && onProgress) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            onProgress(progress);
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          try {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const response = JSON.parse(xhr.responseText);
+              if (response.success) {
+                resolve({ success: true, swingId: response.uploadSession });
+              } else {
+                resolve({ 
+                  success: false, 
+                  error: response.errors?.join(', ') || 'Upload failed' 
+                });
+              }
+            } else {
+              const errorResponse = JSON.parse(xhr.responseText);
+              resolve({ 
+                success: false, 
+                error: errorResponse.error?.message || `Upload failed with status: ${xhr.status}` 
+              });
+            }
+          } catch (error) {
+            resolve({ 
+              success: false, 
+              error: 'Failed to parse server response' 
+            });
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          resolve({ success: false, error: 'Upload failed due to network error' });
+        });
+
+        xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('Authorization', `Bearer ${authSession.access_token}`);
+        xhr.send(formData);
+      });
+
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Upload preparation failed' 
+      };
+    }
+  }
+
+  /**
+   * Upload all recordings in a session (with feature flag support)
    */
   static async uploadSession(
     session: SwingSession,
+    mode: 'training' | 'quick' = 'training',
     onProgress?: (angle: AngleType, progress: number) => void
   ): Promise<UploadResponse> {
+    // Use feature flag to determine upload method
+    if (featureFlags.useBackendUpload) {
+      console.log('🚀 Using backend upload proxy');
+      return this.uploadSessionBackend(session, mode, (progress) => {
+        // Distribute progress across all angles for backward compatibility
+        const angles: AngleType[] = mode === 'quick' ? ['down_line'] : ['down_line', 'face_on', 'overhead'];
+        angles.forEach(angle => onProgress?.(angle, progress));
+      });
+    }
+
+    // Legacy presigned URL upload
+    console.log('📋 Using presigned URL upload');
     try {
       // Get presigned URLs
       const urlResponse = await this.getPresignedUrls(session.category);
