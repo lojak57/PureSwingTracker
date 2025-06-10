@@ -8,10 +8,9 @@ import {
   R2_ACCESS_KEY,
   R2_SECRET_KEY,
   R2_BUCKET_NAME,
-  CLOUDFLARE_ACCOUNT_ID,
-  KV_KV_REST_API_URL,
-  KV_KV_REST_API_TOKEN
+  CLOUDFLARE_ACCOUNT_ID
 } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type { RequestHandler } from '@sveltejs/kit';
 
 // Configure clients
@@ -28,8 +27,8 @@ const adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 // Create Redis client for rate limiting health check
 const redis = new Redis({
-  url: KV_KV_REST_API_URL,
-  token: KV_KV_REST_API_TOKEN,
+  url: env.KV_KV_REST_API_URL || '',
+  token: env.KV_KV_REST_API_TOKEN || '',
 });
 
 interface HealthCheck {

@@ -3,21 +3,33 @@
  * Enables advanced R2 operations using Cloudflare API token
  */
 
-import { CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } from '$env/static/private';
+import { CLOUDFLARE_ACCOUNT_ID } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export class CloudflareAPI {
   private static readonly BASE_URL = 'https://api.cloudflare.com/client/v4';
+  
+  private static get apiToken() {
+    return env.CLOUDFLARE_API_TOKEN || '';
+  }
+  
+  private static checkToken() {
+    if (!this.apiToken) {
+      throw new Error('CLOUDFLARE_API_TOKEN environment variable is required');
+    }
+  }
   
   /**
    * Get R2 bucket CORS configuration
    */
   static async getBucketCORS(bucketName: string) {
+    this.checkToken();
     try {
       const response = await fetch(
         `${this.BASE_URL}/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${bucketName}/cors`,
         {
           headers: {
-            'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+            'Authorization': `Bearer ${this.apiToken}`,
             'Content-Type': 'application/json',
           },
         }
@@ -38,13 +50,14 @@ export class CloudflareAPI {
    * Update R2 bucket CORS configuration
    */
   static async updateBucketCORS(bucketName: string, corsRules: any[]) {
+    this.checkToken();
     try {
       const response = await fetch(
         `${this.BASE_URL}/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${bucketName}/cors`,
         {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+            'Authorization': `Bearer ${this.apiToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(corsRules),
@@ -66,12 +79,13 @@ export class CloudflareAPI {
    * Get R2 bucket lifecycle configuration
    */
   static async getBucketLifecycle(bucketName: string) {
+    this.checkToken();
     try {
       const response = await fetch(
         `${this.BASE_URL}/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${bucketName}/lifecycle`,
         {
           headers: {
-            'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+            'Authorization': `Bearer ${this.apiToken}`,
             'Content-Type': 'application/json',
           },
         }
@@ -93,11 +107,18 @@ export class CloudflareAPI {
    */
   static async healthCheck(): Promise<{ healthy: boolean; error?: string }> {
     try {
+      if (!this.apiToken) {
+        return {
+          healthy: false,
+          error: 'CLOUDFLARE_API_TOKEN environment variable not set'
+        };
+      }
+      
       const response = await fetch(
         `${this.BASE_URL}/user/tokens/verify`,
         {
           headers: {
-            'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+            'Authorization': `Bearer ${this.apiToken}`,
             'Content-Type': 'application/json',
           },
         }
