@@ -296,9 +296,8 @@ export class SwingService {
     if (featureFlags.useBackendUpload) {
       console.log('🚀 Using backend upload proxy');
       return this.uploadSessionBackend(session, mode, (progress) => {
-        // Distribute progress across all angles for backward compatibility
-        const angles: AngleType[] = mode === 'quick' ? ['down_line'] : ['down_line', 'face_on', 'overhead'];
-        angles.forEach(angle => onProgress?.(angle, progress));
+        // Update progress for single video
+        onProgress?.('single', progress);
       });
     }
 
@@ -406,12 +405,12 @@ export class SwingService {
    * Validate video blob/file constraints
    */
   static validateRecording(blob: Blob | File): { valid: boolean; error?: string } {
-    // Check file size (max 200MB)
-    const maxSize = 200 * 1024 * 1024; // 200MB in bytes
+    // Check file size (max 4MB for backend upload)
+    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
     if (blob.size > maxSize) {
       return { 
         valid: false, 
-        error: `Video too large: ${Math.round(blob.size / 1024 / 1024)}MB. Max size is 200MB.` 
+        error: `Video too large: ${Math.round(blob.size / 1024 / 1024)}MB. Max size is 4MB.` 
       };
     }
 
