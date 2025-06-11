@@ -17,8 +17,8 @@ const getFeatureFlags = (): FeatureFlags => {
     : process.env.NODE_ENV === 'development';
 
   return {
-    // Temporarily use presigned URLs due to Vercel 4.5MB body limit
-    useBackendUpload: false,
+    // Use backend upload with single video file for Vercel compatibility
+    useBackendUpload: true,
     enableQuotaEnforcement: true,
     enableAdvancedAnalytics: false,
   };

@@ -24,23 +24,22 @@
   let dragOverStates: Record<string, boolean> = {};
   let uploadProgress: Record<string, number> = {};
 
-  // File validation
+  // File validation - 4MB limit for Vercel compatibility
   function validateVideoFile(file: File): { valid: boolean; error?: string } {
     // Check file type
     if (!file.type.startsWith('video/')) {
       return { valid: false, error: 'File must be a video (MP4, MOV, WebM, etc.)' };
     }
 
-    // Check file size (200MB limit)
-    const maxSize = 200 * 1024 * 1024; // 200MB
+    // Check file size (4MB limit for Vercel backend)
+    const maxSize = 4 * 1024 * 1024; // 4MB
     if (file.size > maxSize) {
       return { 
         valid: false, 
-        error: `File too large: ${Math.round(file.size / 1024 / 1024)}MB. Maximum 200MB allowed.` 
+        error: `File too large: ${Math.round(file.size / 1024 / 1024)}MB. Maximum 4MB allowed.` 
       };
     }
 
-    // Check duration if possible (basic check)
     return { valid: true };
   }
 
@@ -103,9 +102,9 @@
 
 <div class="space-y-6">
   <div class="text-center mb-6">
-    <h3 class="text-lg font-medium text-gray-900 mb-2">Upload Your Swing Videos</h3>
+    <h3 class="text-lg font-medium text-gray-900 mb-2">Upload Your Swing Video</h3>
     <p class="text-sm text-gray-600">
-      Upload videos from your device for each camera angle. Max 200MB per video.
+      Upload a single swing video from any angle. Max 4MB for quick analysis.
     </p>
   </div>
 

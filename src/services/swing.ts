@@ -204,34 +204,27 @@ export class SwingService {
         return { success: false, error: 'Not authenticated' };
       }
 
-      // Prepare FormData
+      // Prepare FormData with single video
       const formData = new FormData();
       formData.append('category', session.category);
       formData.append('mode', mode);
 
-      // Get the expected angles based on mode
-      const expectedAngles = mode === 'quick' ? ['single'] : ['down_line', 'face_on', 'overhead'];
-      
-      // Add files to FormData
-      let hasAllFiles = true;
-      for (const angle of expectedAngles) {
-        const recording = session.recordings[angle as AngleType];
-        if (!recording) {
-          hasAllFiles = false;
+      // Get the first available recording (any angle)
+      let videoFile: File | null = null;
+      for (const [angle, recording] of Object.entries(session.recordings)) {
+        if (recording) {
+          videoFile = recording instanceof File 
+            ? recording 
+            : new File([recording], `swing-video.webm`, { type: recording.type });
           break;
         }
-        
-        // Convert Blob to File if needed
-        const file = recording instanceof File 
-          ? recording 
-          : new File([recording], `${angle}.webm`, { type: recording.type });
-          
-        formData.append(`file_${angle}`, file);
       }
 
-      if (!hasAllFiles) {
-        return { success: false, error: 'Missing required video files' };
+      if (!videoFile) {
+        return { success: false, error: 'No video file available' };
       }
+
+      formData.append('video', videoFile);
 
       // Upload with progress tracking
       return new Promise((resolve, reject) => {
@@ -290,15 +283,25 @@ export class SwingService {
   }
 
   /**
-   * Upload all recordings in a session (FORCED presigned URLs)
+   * Upload all recordings in a session (with feature flag support)
    */
   static async uploadSession(
     session: SwingSession,
     mode: 'training' | 'quick' = 'training',
     onProgress?: (angle: AngleType, progress: number) => void
   ): Promise<UploadResponse> {
-    // 🛠️ FORCING presigned upload to bypass 413 error
-    console.log('🛠️ FORCING presigned upload - bypassing feature flag');
+    // Use feature flag to determine upload method
+    if (featureFlags.useBackendUpload) {
+      console.log('🚀 Using backend upload proxy');
+      return this.uploadSessionBackend(session, mode, (progress) => {
+        // Distribute progress across all angles for backward compatibility
+        const angles: AngleType[] = mode === 'quick' ? ['down_line'] : ['down_line', 'face_on', 'overhead'];
+        angles.forEach(angle => onProgress?.(angle, progress));
+      });
+    }
+
+    // Legacy presigned URL upload
+    console.log('📋 Using presigned URL upload');
     try {
       // Get presigned URLs
       const urlResponse = await this.getPresignedUrls(session.category);

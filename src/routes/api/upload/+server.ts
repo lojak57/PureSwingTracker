@@ -66,17 +66,17 @@ const checkRateLimit = async (userId: string): Promise<boolean> => {
   }
 };
 
-// File validation
+// File validation - Single video mode
 const validateFile = (file: File): void => {
   const allowedTypes = ['video/webm', 'video/mp4', 'video/quicktime'];
-  const maxFileSize = 200 * 1024 * 1024; // 200MB
+  const maxFileSize = 4 * 1024 * 1024; // 4MB max for Vercel compatibility
   
   if (!allowedTypes.includes(file.type)) {
     throw new Error(`Invalid file type: ${file.type}. Allowed: ${allowedTypes.join(', ')}`);
   }
   
   if (file.size > maxFileSize) {
-    throw new Error(`File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 200MB`);
+    throw new Error(`File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 4MB`);
   }
 };
 
@@ -168,127 +168,81 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // 5. Extract and validate files
-    const files: Record<string, File> = {};
-    const expectedAngles = mode === 'quick' ? ['single'] : ['down_line', 'face_on', 'overhead'];
-    let totalSize = 0;
-
-    for (const angle of expectedAngles) {
-      const file = formData.get(`file_${angle}`) as File | null;
-      if (!file) {
-        return json(
-          { error: { code: 'MISSING_FILE', message: `Missing file for angle: ${angle}` } },
-          { status: 400 }
-        );
-      }
-
-      validateFile(file);
-      files[angle] = file;
-      totalSize += file.size;
-    }
-
-    // Check total upload size (600MB max)
-    const maxTotalSize = 600 * 1024 * 1024;
-    if (totalSize > maxTotalSize) {
+    // 5. Extract and validate single video file
+    const videoFile = formData.get('video') as File | null;
+    if (!videoFile) {
       return json(
-        { error: { code: 'TOTAL_SIZE_EXCEEDED', message: `Total size too large: ${(totalSize / 1024 / 1024).toFixed(2)}MB. Max: 600MB` } },
+        { error: { code: 'MISSING_FILE', message: 'Missing video file' } },
         { status: 400 }
       );
     }
 
-    // 6. Generate upload session and keys
+    validateFile(videoFile);
+    const totalSize = videoFile.size;
+
+    // 6. Generate upload session and key
     const uploadSession = R2Organizer.generateUploadSession();
     baseContext = { ...baseContext, uploadSession };
     
     logger.uploadStarted({
       ...baseContext,
-      metadata: { mode, category, fileCount: Object.keys(files).length, totalSize }
+      metadata: { mode, category, fileCount: 1, totalSize }
     });
 
-    // 7. Upload files concurrently
-    const uploadPromises = Object.entries(files).map(async ([angle, file]) => {
-      try {
-        const key = R2Organizer.generateKey({
-          mode,
-          userId,
-          category,
-          angle: angle as any,
-          uploadId: uploadSession
-        });
-
-        const result = await uploadFileToR2(file, key, userId);
-        return { angle, ...result, error: undefined };
-      } catch (error) {
-        console.error(`Upload failed for angle ${angle}:`, error);
-        return { 
-          angle, 
-          key: '', 
-          size: file.size, 
-          uploaded: false, 
-          error: error instanceof Error ? error.message : 'Upload failed' 
-        };
-      }
-    });
-
-    const results = await Promise.allSettled(uploadPromises);
-    
-    // 8. Process results
-    const uploadResults: Record<string, any> = {};
+    // 7. Upload single video file
+    let uploadResult: any;
+    let success = false;
     const errors: string[] = [];
-    let successCount = 0;
 
-    results.forEach((result, index) => {
-      const angle = Object.keys(files)[index];
-      
-      if (result.status === 'fulfilled') {
-        uploadResults[angle] = result.value;
-        if (result.value.uploaded) {
-          successCount++;
-        } else if (result.value.error) {
-          errors.push(`${angle}: ${result.value.error}`);
-        }
-      } else {
-        uploadResults[angle] = {
-          angle,
-          key: '',
-          size: files[angle].size,
-          uploaded: false,
-          error: result.reason?.message || 'Upload failed'
-        };
-        errors.push(`${angle}: ${result.reason?.message || 'Upload failed'}`);
-      }
-    });
+    try {
+      const key = R2Organizer.generateKey({
+        mode,
+        userId,
+        category,
+        angle: 'single' as any,
+        uploadId: uploadSession
+      });
+
+      const result = await uploadFileToR2(videoFile, key, userId);
+      uploadResult = { ...result, error: undefined };
+      success = result.uploaded;
+    } catch (error) {
+      console.error('Upload failed:', error);
+      uploadResult = { 
+        key: '', 
+        size: videoFile.size, 
+        uploaded: false, 
+        error: error instanceof Error ? error.message : 'Upload failed' 
+      };
+      errors.push(error instanceof Error ? error.message : 'Upload failed');
+    }
 
     const duration = Date.now() - startTime;
-    const success = successCount === Object.keys(files).length;
 
-    // 9. Log structured data for monitoring
+    // 8. Log structured data for monitoring
     if (success) {
       logger.uploadCompleted({
         ...baseContext,
         duration,
-        filesUploaded: successCount,
+        filesUploaded: 1,
         totalSize
       });
     } else {
       logger.uploadFailed({
         ...baseContext,
         duration,
-        reason: `${errors.length} file(s) failed: ${errors.join(', ')}`
+        reason: `Upload failed: ${errors.join(', ')}`
       });
     }
 
-    // 10. Create swing record for analysis if upload successful
+    // 9. Create swing record for analysis if upload successful
     let swingId;
     if (success) {
       try {
-        // Convert upload results to video URLs format for swing submission
-        const videoUrls: Record<string, string> = {};
-        for (const [angle, result] of Object.entries(uploadResults)) {
-          if (result.uploaded) {
-            videoUrls[angle] = `https://${R2_BUCKET_NAME}.r2.cloudflarestorage.com/${result.key}`;
-          }
-        }
+        // Create video URL for swing submission
+        const videoUrls: Record<string, string> = {
+          single: `https://${R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uploadResult.key}`
+        };
 
         // Create swing record for analysis pipeline
         const swingData = {
@@ -318,13 +272,13 @@ export const POST: RequestHandler = async ({ request }) => {
       }
     }
 
-    // 11. Return response
+    // 10. Return response
     if (success) {
       return json({
         success: true,
         uploadSession,
         swingId, // Include swing ID for navigation
-        results: uploadResults,
+        result: uploadResult,
         metadata: {
           mode,
           category,
@@ -341,11 +295,11 @@ export const POST: RequestHandler = async ({ request }) => {
         {
           success: false,
           uploadSession,
-          results: uploadResults,
+          result: uploadResult,
           errors,
           metadata: { mode, category, duration, totalSize }
         },
-        { status: 207 } // 207 Multi-Status for partial success
+        { status: 400 } // Bad request for single file failure
       );
     }
 
