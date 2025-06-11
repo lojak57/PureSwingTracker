@@ -63,6 +63,12 @@
         if (swing && session.access_token) {
           // Check for existing metrics first using authenticated client
           try {
+            // Ensure the supabase client has the current session
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token || session.access_token
+            });
+            
             const { data: existingMetrics, error } = await supabase
               .from('swing_metrics')
               .select('*')
