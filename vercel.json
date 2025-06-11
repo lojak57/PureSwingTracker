@@ -6,7 +6,7 @@
   },
   "functions": {
     "src/routes/api/upload/+server.ts": {
-      "maxDuration": 300,
+      "maxDuration": 60,
       "memory": 1024
     }
   }
