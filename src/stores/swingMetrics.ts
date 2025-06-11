@@ -1,8 +1,6 @@
 import { writable } from 'svelte/store';
-import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
-
-const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+import { type RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '$lib/supabase';
 
 export interface SwingMetrics {
   id: string;
@@ -62,16 +60,13 @@ export function subscribeToMetrics(swingId: string, userToken: string) {
 // Check if metrics already exist for a swing
 export async function getExistingMetrics(swingId: string, userToken: string): Promise<SwingMetrics | null> {
   try {
-    // Create user-specific client with JWT
-    const userClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${userToken}`
-        }
-      }
+    // Make sure the client has the user's session
+    await supabase.auth.setSession({
+      access_token: userToken,
+      refresh_token: userToken // Use same token for refresh (temporary)
     });
 
-    const { data, error } = await userClient
+    const { data, error } = await supabase
       .from('swing_metrics')
       .select('*')
       .eq('swing_id', swingId)
