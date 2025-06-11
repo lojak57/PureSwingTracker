@@ -180,7 +180,6 @@
               <video 
                 controls 
                 class="w-full h-auto"
-                poster="/api/placeholder/400/300?text=Golf+Swing"
               >
                 <source src={swing.video_urls.single} type="video/webm">
                 <source src={swing.video_urls.single} type="video/mp4">
