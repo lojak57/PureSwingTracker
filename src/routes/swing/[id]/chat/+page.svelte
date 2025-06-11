@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { supabase } from '$lib/supabase';
   
   let swingId = '';
   let swing: any = null;
@@ -18,6 +19,18 @@
   
   async function loadSwingAndMessages() {
     try {
+      // Get authentication token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        goto('/auth/login');
+        return;
+      }
+      
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      };
+      
       // Load swing data
       const swingResponse = await fetch(`/api/swing/${swingId}`, {
         headers: { 'Content-Type': 'application/json' }
@@ -32,7 +45,7 @@
       
       // Load chat messages
       const messagesResponse = await fetch(`/api/chat/${swingId}`, {
-        headers: { 'Content-Type': 'application/json' }
+        headers: authHeaders
       });
       
       if (messagesResponse.ok) {
@@ -64,9 +77,19 @@
     }];
     
     try {
+      // Get authentication token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        goto('/auth/login');
+        return;
+      }
+      
       const response = await fetch(`/api/chat/${swingId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ message: userMessage })
       });
       
