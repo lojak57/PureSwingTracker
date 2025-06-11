@@ -118,8 +118,8 @@ const uploadFileToWorker = async (
   try {
     console.log(`🔧 WORKER PROXY: Starting upload via Cloudflare Worker - user: ${userId}, key: ${key}, size: ${file.size}`);
     
-    // Cloudflare Worker R2 Proxy URL
-    const workerUrl = 'https://pure-golf-r2-proxy.varro-golf.workers.dev';
+    // Cloudflare Worker R2 Proxy URL from environment
+    const workerUrl = env.WORKER_R2_PROXY_URL || 'https://pure-golf-r2-proxy.varro-golf.workers.dev';
     
     const response = await fetch(workerUrl, {
       method: 'PUT',
