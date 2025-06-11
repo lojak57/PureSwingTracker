@@ -30,14 +30,14 @@ const redis = new Redis({
   token: env.KV_KV_REST_API_TOKEN || '',
 });
 
-// FINAL FIX: Use custom domain to bypass TLS incompatibility with default R2 endpoint
-const r2Endpoint = `https://${R2_CUSTOM_DOMAIN}`;
-const useCustomDomain = true;
+// LAST RESORT: Use default endpoint with forcePathStyle to bypass SSL handshake
+const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+const useCustomDomain = false;
 
-console.log('🎯 FINAL R2 CONFIG - Custom Domain Direct API:', {
+console.log('🔧 LAST RESORT CONFIG - Path Style Addressing:', {
   r2Endpoint,
-  customDomain: R2_CUSTOM_DOMAIN,
-  reason: 'Using custom domain to bypass SSL handshake failures with default endpoint'
+  forcePathStyle: true,
+  reason: 'Using path-style requests to bypass SSL handshake failures'
 });
 
 // Create custom HTTPS agent to handle SSL handshake issues
@@ -52,9 +52,8 @@ const s3Client = new S3Client({
   region: 'auto',
   endpoint: r2Endpoint,
   
-  // Custom domain configuration for direct API calls
-  bucketEndpoint: true,      // Tell SDK we're using a bucket-specific endpoint
-  forcePathStyle: false,     // Must be false for custom domains to work correctly
+  // LAST RESORT: Force path-style addressing to bypass SSL handshake issues
+  forcePathStyle: true,      // Use path-style requests (endpoint.com/bucket/key)
   
   credentials: {
     accessKeyId: R2_ACCESS_KEY,
@@ -128,9 +127,9 @@ const uploadFileToR2 = async (
       FileName: file.name
     });
     
-    // Use direct PutObjectCommand instead of Upload for better error visibility  
-    // Note: Bucket parameter omitted because bucketEndpoint: true tells SDK the endpoint already points to bucket
+    // Use direct PutObjectCommand with path-style addressing (last resort)
     const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,  // ADDED BACK: Required for path-style requests
       Key: key,
       Body: new Uint8Array(await file.arrayBuffer()), // Convert to Uint8Array for S3
       ContentType: file.type,
@@ -139,7 +138,7 @@ const uploadFileToR2 = async (
         'upload-timestamp': new Date().toISOString(),
         'original-filename': file.name
       }
-    } as any); // Type assertion needed because SDK types don't account for bucketEndpoint: true
+    });
 
     console.log('🚀 About to send PutObjectCommand...');
     console.log('🚀 S3Client config:', {
