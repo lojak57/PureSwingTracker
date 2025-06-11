@@ -28,16 +28,12 @@ const redis = new Redis({
   token: env.KV_KV_REST_API_TOKEN || '',
 });
 
-// Configure S3 client for R2 (with SSL workaround)
-const useCustomDomain = R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com';
-const r2Endpoint = useCustomDomain 
-  ? `https://${R2_CUSTOM_DOMAIN}`
-  : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+// Configure S3 client for R2 (test without custom domain first)
+const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-console.log('🔗 Backend R2 Config:', {
-  useCustomDomain,
+console.log('🔗 Backend R2 Config (Testing Default):', {
   r2Endpoint,
-  reason: useCustomDomain ? 'Using custom domain' : 'Using default endpoint'
+  reason: 'Testing default endpoint for debugging'
 });
 
 const s3Client = new S3Client({
@@ -125,6 +121,12 @@ const uploadFileToR2 = async (
     
   } catch (error) {
     console.error(`Upload failed - key: ${key}, error:`, error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack',
+      cause: error instanceof Error ? error.cause : 'No cause'
+    });
     throw new Error(`Upload failed for ${key}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
