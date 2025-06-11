@@ -1,6 +1,5 @@
 import { supabase } from '$lib/supabase';
 import type { SwingCategory, VideoUrls } from '$lib/supabase';
-import { featureFlags } from '$lib/feature-flags';
 
 export type RecordingState = 'setup' | 'recording' | 'recorded' | 'complete';
 export type AngleType = 'down_line' | 'face_on' | 'overhead' | 'single';
@@ -123,9 +122,9 @@ export class SwingService {
   }
 
   /**
-   * Get presigned upload URLs from the backend
+   * Get presigned upload URLs from the backend (single video mode)
    */
-  static async getPresignedUrls(category: SwingCategory): Promise<PresignedUrlResponse> {
+  static async getPresignedUrls(category: SwingCategory, mode: 'training' | 'quick' = 'training'): Promise<PresignedUrlResponse> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -138,7 +137,7 @@ export class SwingService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ category })
+        body: JSON.stringify({ category, mode })
       });
 
       if (!response.ok) {
@@ -192,97 +191,7 @@ export class SwingService {
     });
   }
 
-  /**
-   * Upload files using the new backend proxy (Feature Flag)
-   */
-  static async uploadSessionBackend(
-    session: SwingSession,
-    mode: 'training' | 'quick' = 'training',
-    onProgress?: (progress: number) => void
-  ): Promise<UploadResponse> {
-    try {
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      if (!authSession) {
-        return { success: false, error: 'Not authenticated' };
-      }
 
-      // Prepare FormData with single video
-      const formData = new FormData();
-      formData.append('category', session.category);
-      formData.append('mode', mode);
-
-      // Get the first available recording (any angle)
-      let videoFile: File | null = null;
-      for (const [angle, recording] of Object.entries(session.recordings)) {
-        if (recording) {
-          videoFile = recording instanceof File 
-            ? recording 
-            : new File([recording], `swing-video.webm`, { type: recording.type });
-          break;
-        }
-      }
-
-      if (!videoFile) {
-        return { success: false, error: 'No video file available' };
-      }
-
-      formData.append('video', videoFile);
-
-      // Upload with progress tracking
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable && onProgress) {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            onProgress(progress);
-          }
-        });
-
-        xhr.addEventListener('load', () => {
-          try {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              const response = JSON.parse(xhr.responseText);
-              if (response.success) {
-                // Use swingId if available, otherwise fall back to uploadSession
-                resolve({ success: true, swingId: response.swingId || response.uploadSession });
-              } else {
-                resolve({ 
-                  success: false, 
-                  error: response.errors?.join(', ') || 'Upload failed' 
-                });
-              }
-            } else {
-              const errorResponse = JSON.parse(xhr.responseText);
-              resolve({ 
-                success: false, 
-                error: errorResponse.error?.message || `Upload failed with status: ${xhr.status}` 
-              });
-            }
-          } catch (error) {
-            resolve({ 
-              success: false, 
-              error: 'Failed to parse server response' 
-            });
-          }
-        });
-
-        xhr.addEventListener('error', () => {
-          resolve({ success: false, error: 'Upload failed due to network error' });
-        });
-
-        xhr.open('POST', '/api/upload');
-        xhr.setRequestHeader('Authorization', `Bearer ${authSession.access_token}`);
-        xhr.send(formData);
-      });
-
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Upload preparation failed' 
-      };
-    }
-  }
 
   /**
    * Upload all recordings in a session (with feature flag support)
@@ -292,91 +201,107 @@ export class SwingService {
     mode: 'training' | 'quick' = 'training',
     onProgress?: (angle: AngleType, progress: number) => void
   ): Promise<UploadResponse> {
-    // Use feature flag to determine upload method
-    if (featureFlags.useBackendUpload) {
-      console.log('🚀 Using backend upload proxy');
-      return this.uploadSessionBackend(session, mode, (progress) => {
-        // Update progress for single video
-        onProgress?.('single', progress);
-      });
-    }
-
-    // Legacy presigned URL upload
-    console.log('📋 Using presigned URL upload');
+    console.log('✅ FORCING presigned upload - bypassing backend proxy');
+    
     try {
-      // Get presigned URLs
-      const urlResponse = await this.getPresignedUrls(session.category);
+      // Get the first available recording (single video)
+      let videoFile: File | Blob | null = null;
+      for (const [angle, recording] of Object.entries(session.recordings)) {
+        if (recording) {
+          videoFile = recording;
+          break;
+        }
+      }
+
+      if (!videoFile) {
+        return { success: false, error: 'No video file available' };
+      }
+
+      // Get presigned URL for single video upload
+      const urlResponse = await this.getPresignedUrls(session.category, mode);
       if (!urlResponse.success || !urlResponse.urls) {
         return { success: false, error: urlResponse.error };
       }
 
       const { urls } = urlResponse;
+      const presignedUrl = urls.single || urls.face_on || Object.values(urls)[0];
+      
+      if (!presignedUrl) {
+        return { success: false, error: 'No presigned URL available' };
+      }
 
-      // Upload all videos in parallel
-      const uploadPromises = Object.entries(session.recordings).map(async ([angle, blob]) => {
-        if (!blob) throw new Error(`No recording for ${angle}`);
-        
-        const angleType = angle as AngleType;
-        const presignedUrl = urls[angleType];
-        
-        await this.uploadVideo(blob, presignedUrl, (progress) => {
-          onProgress?.(angleType, progress);
+      console.log('🎯 Direct PUT to R2:', presignedUrl);
+
+      // Upload directly to R2 with progress tracking
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable && onProgress) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            onProgress('single', progress);
+          }
         });
 
-        return { angle: angleType, url: presignedUrl.split('?')[0] }; // Remove query params
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(true);
+          } else {
+            reject(new Error(`Upload failed with status: ${xhr.status}`));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Upload failed due to network error'));
+        });
+
+        xhr.open('PUT', presignedUrl);
+        xhr.setRequestHeader('Content-Type', videoFile.type || 'video/webm');
+        xhr.send(videoFile);
       });
 
-      await Promise.all(uploadPromises);
+      console.log('✅ Video uploaded to R2, now submitting metadata...');
 
-      // Submit swing record to backend
-      const submitResponse = await this.submitSwing(session.category, urls);
-      return submitResponse;
+      // Submit swing metadata to trigger GPT analysis
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) {
+        return { success: false, error: 'Not authenticated for submission' };
+      }
+
+      const submitResponse = await fetch('/api/swing/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authSession.access_token}`
+        },
+        body: JSON.stringify({
+          category: session.category,
+          mode: mode,
+          video_urls: {
+            single: presignedUrl.split('?')[0] // Remove query params for storage
+          }
+        })
+      });
+
+      if (!submitResponse.ok) {
+        const errorData = await submitResponse.json();
+        return { 
+          success: false, 
+          error: errorData.error?.message || 'Failed to submit swing for analysis' 
+        };
+      }
+
+      const submitData = await submitResponse.json();
+      
+      return { 
+        success: true, 
+        swingId: submitData.swing_id || submitData.swingId 
+      };
 
     } catch (error) {
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Upload failed' 
-      };
-    }
-  }
-
-  /**
-   * Submit swing record to backend after successful upload
-   */
-  static async submitSwing(
-    category: SwingCategory, 
-    videoUrls: VideoUrls
-  ): Promise<UploadResponse> {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return { success: false, error: 'Not authenticated' };
-      }
-
-      const response = await fetch('/api/swing/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          category,
-          video_urls: videoUrls
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        return { success: false, error: errorData.error?.message || 'Failed to submit swing' };
-      }
-
-      const data = await response.json();
-      return { success: true, swingId: data.swing_id };
-
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Submission failed' 
       };
     }
   }
