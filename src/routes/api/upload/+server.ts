@@ -138,21 +138,23 @@ const uploadFileToR2 = async (
     return { key, size: file.size, uploaded: true };
     
   } catch (error) {
-    console.error('🚨 RAW ERROR CAUGHT:', error);
-    console.error('🚨 ERROR TYPE:', typeof error);
-    console.error('🚨 ERROR STRING:', String(error));
-    console.error('🚨 ERROR JSON:', JSON.stringify(error, null, 2));
-    console.error('🚨 ERROR KEYS:', Object.keys(error || {}));
-    console.error('🚨 ERROR VALUES:', Object.values(error || {}));
+    // Capture detailed error info to return in response
+    const errorDetails = {
+      rawError: error,
+      errorType: typeof error,
+      errorString: String(error),
+      errorKeys: Object.keys(error || {}),
+      errorValues: Object.values(error || {}),
+      isErrorInstance: error instanceof Error,
+      errorName: error instanceof Error ? error.name : null,
+      errorMessage: error instanceof Error ? error.message : null,
+      errorStack: error instanceof Error ? error.stack : null
+    };
     
-    if (error instanceof Error) {
-      console.error('🚨 ERROR.NAME:', error.name);
-      console.error('🚨 ERROR.MESSAGE:', error.message);
-      console.error('🚨 ERROR.STACK:', error.stack);
-    }
-    
-    // Just throw the raw error to see what gets passed up
-    throw error;
+    // Still throw but with debug info attached
+    const debugError = new Error(error instanceof Error ? error.message : 'Upload failed');
+    (debugError as any).debugDetails = errorDetails;
+    throw debugError;
   }
 };
 
@@ -247,22 +249,15 @@ export const POST: RequestHandler = async ({ request }) => {
       uploadResult = { ...result, error: undefined };
       success = result.uploaded;
     } catch (error) {
-      console.error('🔥 MAIN UPLOAD CATCH - RAW ERROR:', error);
-      console.error('🔥 ERROR TYPE:', typeof error);
-      console.error('🔥 ERROR STRING:', String(error));
-      console.error('🔥 ERROR JSON:', JSON.stringify(error, null, 2));
-      
-      if (error instanceof Error) {
-        console.error('🔥 ERROR.NAME:', error.name);
-        console.error('🔥 ERROR.MESSAGE:', error.message);
-        console.error('🔥 ERROR.STACK:', error.stack);
-      }
+      // Capture debug details if available
+      const debugDetails = (error as any)?.debugDetails || null;
       
       uploadResult = { 
         key: '', 
         size: videoFile.size, 
         uploaded: false, 
-        error: error instanceof Error ? error.message : 'Upload failed' 
+        error: error instanceof Error ? error.message : 'Upload failed',
+        debugDetails // Include debug info in result
       };
       errors.push(error instanceof Error ? error.message : 'Upload failed');
     }
