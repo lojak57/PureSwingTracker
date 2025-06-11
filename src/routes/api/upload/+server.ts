@@ -128,9 +128,9 @@ const uploadFileToR2 = async (
       FileName: file.name
     });
     
-    // Use direct PutObjectCommand instead of Upload for better error visibility
+    // Use direct PutObjectCommand instead of Upload for better error visibility  
+    // Note: Bucket parameter omitted because bucketEndpoint: true tells SDK the endpoint already points to bucket
     const command = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
       Key: key,
       Body: new Uint8Array(await file.arrayBuffer()), // Convert to Uint8Array for S3
       ContentType: file.type,
@@ -139,7 +139,7 @@ const uploadFileToR2 = async (
         'upload-timestamp': new Date().toISOString(),
         'original-filename': file.name
       }
-    });
+    } as any); // Type assertion needed because SDK types don't account for bucketEndpoint: true
 
     console.log('🚀 About to send PutObjectCommand...');
     console.log('🚀 S3Client config:', {
