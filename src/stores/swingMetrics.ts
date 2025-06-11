@@ -60,12 +60,8 @@ export function subscribeToMetrics(swingId: string, userToken: string) {
 // Check if metrics already exist for a swing
 export async function getExistingMetrics(swingId: string, userToken: string): Promise<SwingMetrics | null> {
   try {
-    // Make sure the client has the user's session
-    await supabase.auth.setSession({
-      access_token: userToken,
-      refresh_token: userToken // Use same token for refresh (temporary)
-    });
-
+    // Use the authenticated supabase client from the page context
+    // The session should already be set by the calling page
     const { data, error } = await supabase
       .from('swing_metrics')
       .select('*')

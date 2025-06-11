@@ -50,8 +50,24 @@
         
         // Set up metrics subscription and check for existing metrics
         if (swing && session.access_token) {
-          // Check for existing metrics first
-          await getExistingMetrics(swingId, session.access_token);
+          // Check for existing metrics first using authenticated client
+          try {
+            const { data: existingMetrics, error } = await supabase
+              .from('swing_metrics')
+              .select('*')
+              .eq('swing_id', swingId)
+              .single();
+            
+            if (existingMetrics) {
+              console.log('📊 Found existing metrics:', existingMetrics);
+              swingMetrics.set(existingMetrics);
+              isAnalyzing.set(false);
+            } else if (error && error.code !== 'PGRST116') {
+              console.error('Error fetching existing metrics:', error);
+            }
+          } catch (err) {
+            console.error('Error checking existing metrics:', err);
+          }
           
           // Subscribe to real-time updates
           unsubscribeMetrics = subscribeToMetrics(swingId, session.access_token);
