@@ -488,6 +488,7 @@ export class SwingService {
 
         xhr.open('PUT', workerUrl);
         xhr.setRequestHeader('X-File-Key', key);
+        xhr.setRequestHeader('X-Content-Type', videoFile.type);
         xhr.setRequestHeader('Content-Type', videoFile.type);
         xhr.send(videoFile);
       });
