@@ -35,7 +35,8 @@
       
       const response = await fetch('/api/swings/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ swing_id: swingId })
       });
       
       if (response.ok) {

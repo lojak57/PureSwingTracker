@@ -9,33 +9,48 @@ import type { RequestHandler } from '@sveltejs/kit';
 const adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-export const POST: RequestHandler = async () => {
+export const POST: RequestHandler = async ({ request }) => {
   try {
     console.log('🤖 Starting swing analysis worker...');
     
-    // Get next queued swing
-    console.log('🔍 Looking for queued swings...');
-    
-    // First, check all swings to see what we have
-    const { data: allSwings, error: allError } = await adminClient
-      .from('pure_swings')
-      .select('id, status, category, created_at')
-      .order('created_at', { ascending: false })
-      .limit(10);
-    
-    if (allError) {
-      console.error('❌ Error fetching all swings:', allError);
-    } else {
-      console.log('📊 Recent swings in database:', allSwings);
+    // Check if a specific swing ID was provided
+    let swingId = null;
+    try {
+      const body = await request.json();
+      swingId = body.swing_id;
+    } catch {
+      // No body or invalid JSON, continue with queue processing
     }
     
-    const { data: swing, error: fetchError } = await adminClient
-      .from('pure_swings')
-      .select('*')
-      .eq('status', 'queued')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single();
+    let swing;
+    let fetchError;
+    
+    if (swingId) {
+      // Analyze specific swing
+      console.log(`🎯 Analyzing specific swing: ${swingId}`);
+      const { data, error } = await adminClient
+        .from('pure_swings')
+        .select('*')
+        .eq('id', swingId)
+        .single();
+      
+      swing = data;
+      fetchError = error;
+    } else {
+      // Get next queued swing
+      console.log('🔍 Looking for queued swings...');
+      
+      const { data, error } = await adminClient
+        .from('pure_swings')
+        .select('*')
+        .eq('status', 'queued')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+      
+      swing = data;
+      fetchError = error;
+    }
 
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
