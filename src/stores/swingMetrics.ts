@@ -21,11 +21,17 @@ export const isAnalyzing = writable<boolean>(false);
 
 let currentChannel: RealtimeChannel | null = null;
 
-export function subscribeToMetrics(swingId: string, userToken: string) {
+export async function subscribeToMetrics(swingId: string, userToken: string) {
   // Clean up existing subscription
   if (currentChannel) {
     supabase.removeChannel(currentChannel);
   }
+
+  // Ensure the client is authenticated before subscribing
+  await supabase.auth.setSession({
+    access_token: userToken,
+    refresh_token: userToken // Use same token for refresh (temporary)
+  });
 
   isAnalyzing.set(true);
   swingMetrics.set(null);

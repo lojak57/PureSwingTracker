@@ -86,8 +86,8 @@
             console.error('Error checking existing metrics:', err);
           }
           
-          // Subscribe to real-time updates
-          unsubscribeMetrics = subscribeToMetrics(swingId, session.access_token);
+          // Subscribe to real-time updates (ensure client is authenticated first)
+          unsubscribeMetrics = await subscribeToMetrics(swingId, session.access_token);
         }
       } else {
         error = 'Failed to load swing data';
