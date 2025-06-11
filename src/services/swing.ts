@@ -191,24 +191,29 @@ export class SwingService {
     });
   }
 
-
-
   /**
-   * Upload all recordings in a session (with feature flag support)
+   * Upload all recordings in a session (backend proxy approach)
    */
   static async uploadSession(
     session: SwingSession,
     mode: 'training' | 'quick' = 'training',
     onProgress?: (angle: AngleType, progress: number) => void
   ): Promise<UploadResponse> {
-    console.log('✅ FORCING presigned upload - bypassing backend proxy');
+    console.log('🔄 Using backend upload proxy (R2 direct failed SSL)');
     
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
       // Get the first available recording (single video)
-      let videoFile: File | Blob | null = null;
+      let videoFile: File | null = null;
       for (const [angle, recording] of Object.entries(session.recordings)) {
         if (recording) {
-          videoFile = recording;
+          videoFile = recording instanceof File 
+            ? recording 
+            : new File([recording], `swing-video.webm`, { type: recording.type });
           break;
         }
       }
@@ -217,91 +222,86 @@ export class SwingService {
         return { success: false, error: 'No video file available' };
       }
 
-      // Get presigned URL for single video upload
-      const urlResponse = await this.getPresignedUrls(session.category, mode);
-      if (!urlResponse.success || !urlResponse.urls) {
-        return { success: false, error: urlResponse.error };
-      }
+      console.log('📹 Video file details:', {
+        name: videoFile.name,
+        size: videoFile.size,
+        type: videoFile.type,
+        sizeMB: (videoFile.size / 1024 / 1024).toFixed(2)
+      });
 
-      const { urls } = urlResponse;
-      const presignedUrl = urls.single || urls.face_on || Object.values(urls)[0];
-      
-      if (!presignedUrl) {
-        return { success: false, error: 'No presigned URL available' };
-      }
+      // Prepare FormData with single video
+      const formData = new FormData();
+      formData.append('category', session.category);
+      formData.append('mode', mode);
+      formData.append('video', videoFile);
 
-      console.log('🎯 Direct PUT to R2:', presignedUrl);
+      console.log('📤 Uploading to backend proxy...');
 
-      // Upload directly to R2 with progress tracking
-      await new Promise((resolve, reject) => {
+      // Upload with progress tracking and detailed error handling
+      return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
         xhr.upload.addEventListener('progress', (event) => {
           if (event.lengthComputable && onProgress) {
             const progress = Math.round((event.loaded / event.total) * 100);
+            console.log(`📊 Upload progress: ${progress}%`);
             onProgress('single', progress);
           }
         });
 
         xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(true);
-          } else {
-            reject(new Error(`Upload failed with status: ${xhr.status}`));
+          try {
+            console.log('📡 Backend response status:', xhr.status);
+            console.log('📡 Backend response text:', xhr.responseText);
+            
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const response = JSON.parse(xhr.responseText);
+              console.log('✅ Backend response parsed:', response);
+              
+              if (response.success) {
+                resolve({ success: true, swingId: response.swingId || response.uploadSession });
+              } else {
+                resolve({ 
+                  success: false, 
+                  error: response.errors?.join(', ') || response.error || 'Upload failed' 
+                });
+              }
+            } else {
+              let errorMessage = `Upload failed with status: ${xhr.status}`;
+              try {
+                const errorResponse = JSON.parse(xhr.responseText);
+                errorMessage = errorResponse.error?.message || errorResponse.message || errorMessage;
+                console.error('❌ Backend error details:', errorResponse);
+              } catch (parseError) {
+                console.error('❌ Could not parse error response:', xhr.responseText);
+              }
+              
+              resolve({ success: false, error: errorMessage });
+            }
+          } catch (error) {
+            console.error('❌ Error parsing response:', error);
+            resolve({ 
+              success: false, 
+              error: 'Failed to parse server response' 
+            });
           }
         });
 
         xhr.addEventListener('error', () => {
-          reject(new Error('Upload failed due to network error'));
+          console.error('❌ Network error during upload');
+          resolve({ success: false, error: 'Upload failed due to network error' });
         });
 
-        xhr.open('PUT', presignedUrl);
-        xhr.setRequestHeader('Content-Type', videoFile.type || 'video/webm');
-        xhr.send(videoFile);
+        xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('Authorization', `Bearer ${authSession.access_token}`);
+        xhr.send(formData);
       });
-
-      console.log('✅ Video uploaded to R2, now submitting metadata...');
-
-      // Submit swing metadata to trigger GPT analysis
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      if (!authSession) {
-        return { success: false, error: 'Not authenticated for submission' };
-      }
-
-      const submitResponse = await fetch('/api/swing/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authSession.access_token}`
-        },
-        body: JSON.stringify({
-          category: session.category,
-          mode: mode,
-          video_urls: {
-            single: presignedUrl.split('?')[0] // Remove query params for storage
-          }
-        })
-      });
-
-      if (!submitResponse.ok) {
-        const errorData = await submitResponse.json();
-        return { 
-          success: false, 
-          error: errorData.error?.message || 'Failed to submit swing for analysis' 
-        };
-      }
-
-      const submitData = await submitResponse.json();
-      
-      return { 
-        success: true, 
-        swingId: submitData.swing_id || submitData.swingId 
-      };
 
     } catch (error) {
+      console.error('❌ Upload preparation failed:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Upload failed' 
+        error: error instanceof Error ? error.message : 'Upload preparation failed' 
       };
     }
   }
