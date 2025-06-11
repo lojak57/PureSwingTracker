@@ -218,11 +218,7 @@
             {#if messages.length === 0}
               <div class="text-center text-augusta-500 py-8">
                 <p>No messages yet.</p>
-                {#if swing?.status === 'completed'}
-                  <p class="text-sm mt-2">Analysis is complete! Ask Coach Oliver about your swing.</p>
-                {:else}
-                  <p class="text-sm mt-2">Waiting for analysis to complete...</p>
-                {/if}
+                <p class="text-sm mt-2">Waiting for analysis to complete...</p>
               </div>
             {:else}
               {#each messages as message}
@@ -256,13 +252,13 @@
               <input
                 bind:value={newMessage}
                 on:keydown={handleKeydown}
-                disabled={sending || swing?.status !== 'completed'}
-                placeholder={swing?.status === 'completed' ? "Ask Coach Oliver about your swing..." : "Waiting for analysis..."}
+                disabled={sending || messages.length === 0}
+                placeholder={messages.length > 0 ? "Ask Coach Oliver about your swing..." : "Waiting for analysis..."}
                 class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-augusta-500 disabled:bg-gray-100 disabled:text-gray-400"
               />
               <button
                 on:click={sendMessage}
-                disabled={!newMessage.trim() || sending || swing?.status !== 'completed'}
+                disabled={!newMessage.trim() || sending || messages.length === 0}
                 class="px-4 py-2 bg-augusta-600 text-white rounded-lg hover:bg-augusta-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {#if sending}
