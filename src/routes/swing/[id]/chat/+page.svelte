@@ -16,6 +16,17 @@
   let unsubscribeMetrics: (() => void) | null = null;
   
   onMount(async () => {
+    // Debug: Track all fetch calls to swing_metrics
+    if (typeof window !== 'undefined') {
+      const originalFetch = window.fetch;
+      window.fetch = function(...args) {
+        if (args[0] && args[0].toString().includes('/swing_metrics')) {
+          console.trace('🔍 RAW FETCH to swing_metrics:', ...args);
+        }
+        return originalFetch.apply(this, args);
+      };
+    }
+    
     swingId = $page.params.id;
     await loadSwingAndMessages();
   });
