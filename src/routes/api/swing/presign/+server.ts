@@ -50,22 +50,21 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // Use custom domain if available to avoid SSL handshake issues
-    const useCustomDomain = R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com';
-    const r2Endpoint = useCustomDomain 
-      ? `https://${R2_CUSTOM_DOMAIN}`
-      : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    // TEMPORARILY disable custom domain until DNS is configured
+    const useCustomDomain = false; // R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com';
+    const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-    console.log('🔗 R2 Upload Endpoint:', {
+    console.log('🔗 R2 Upload Config (Custom Domain DISABLED):', {
       R2_CUSTOM_DOMAIN,
       useCustomDomain,
-      r2Endpoint
+      r2Endpoint,
+      reason: 'DNS not configured for custom domain'
     });
 
     const s3Client = new S3Client({
       region: 'auto',
       endpoint: r2Endpoint,
-      forcePathStyle: !useCustomDomain, // Custom domains don't need path-style
+      forcePathStyle: true, // Always use path-style for R2
       credentials: {
         accessKeyId: R2_ACCESS_KEY,
         secretAccessKey: R2_SECRET_KEY,
