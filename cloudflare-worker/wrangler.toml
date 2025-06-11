@@ -1,0 +1,12 @@
+name = "pure-golf-r2-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-05-01"
+
+# R2 bucket binding for direct native access
+[[r2_buckets]]
+binding = "GOLF_SWINGS_BUCKET"
+bucket_name = "pure-swings-prod"
+
+# Environment variables (set these with wrangler secret put)
+[vars]
+ALLOWED_ORIGINS = "https://app.varro-golfhq.com" 

@@ -110,66 +110,47 @@ const validateFile = (file: File): void => {
 };
 
 // Upload single file to R2
-const uploadFileToR2 = async (
+const uploadFileToWorker = async (
   file: File, 
   key: string, 
   userId: string
 ): Promise<{ key: string; size: number; uploaded: boolean }> => {
   try {
-    console.log(`🟢 DEPLOYMENT CHECK: uploadFileToR2 v2.0 - Starting upload - user: ${userId}, key: ${key}, size: ${file.size}`);
-    console.log('Upload configuration:', {
-      Bucket: R2_BUCKET_NAME,
-      Key: key,
-      ContentType: file.type,
-      ClientEndpoint: r2Endpoint,
-      ForcePathStyle: Boolean(useCustomDomain),
-      FileSize: file.size,
-      FileName: file.name
-    });
+    console.log(`🔧 WORKER PROXY: Starting upload via Cloudflare Worker - user: ${userId}, key: ${key}, size: ${file.size}`);
     
-    // Use direct PutObjectCommand with path-style addressing (last resort)
-    const command = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,  // ADDED BACK: Required for path-style requests
-      Key: key,
-      Body: new Uint8Array(await file.arrayBuffer()), // Convert to Uint8Array for S3
-      ContentType: file.type,
-      Metadata: {
-        'uploaded-by': userId,
-        'upload-timestamp': new Date().toISOString(),
-        'original-filename': file.name
-      }
+    // Cloudflare Worker R2 Proxy URL
+    const workerUrl = 'https://pure-golf-r2-proxy.varro-golf.workers.dev';
+    
+    const response = await fetch(workerUrl, {
+      method: 'PUT',
+      headers: {
+        'X-File-Key': key,
+        'X-Content-Type': file.type,
+        'X-Metadata-uploaded-by': userId,
+        'X-Metadata-upload-timestamp': new Date().toISOString(),
+        'X-Metadata-original-filename': file.name,
+        'Content-Type': file.type,
+      },
+      body: file.stream(),
     });
 
-    console.log('🚀 About to send PutObjectCommand...');
-    console.log('🚀 S3Client config:', {
-      endpoint: r2Endpoint,
-      forcePathStyle: Boolean(useCustomDomain)
-    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Worker upload failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Worker upload SUCCESS:', result);
     
-    const result = await s3Client.send(command);
-    console.log('✅ PutObjectCommand SUCCESS:', result);
-    
-    console.log(`Upload successful - key: ${key}`);
-    return { key, size: file.size, uploaded: true };
-    
-  } catch (error) {
-    // Capture detailed error info to return in response
-    const errorDetails = {
-      rawError: error,
-      errorType: typeof error,
-      errorString: String(error),
-      errorKeys: Object.keys(error || {}),
-      errorValues: Object.values(error || {}),
-      isErrorInstance: error instanceof Error,
-      errorName: error instanceof Error ? error.name : null,
-      errorMessage: error instanceof Error ? error.message : null,
-      errorStack: error instanceof Error ? error.stack : null
+    return { 
+      key: result.key || key, 
+      size: result.size || file.size, 
+      uploaded: result.success || false 
     };
     
-    // Still throw but with debug info attached
-    const debugError = new Error(error instanceof Error ? error.message : 'Upload failed');
-    (debugError as any).debugDetails = errorDetails;
-    throw debugError;
+  } catch (error) {
+    console.error('🚨 Worker upload error:', error);
+    throw error;
   }
 };
 
@@ -260,7 +241,7 @@ export const POST: RequestHandler = async ({ request }) => {
         uploadId: uploadSession
       });
 
-      const result = await uploadFileToR2(videoFile, key, userId);
+      const result = await uploadFileToWorker(videoFile, key, userId);
       uploadResult = { ...result, error: undefined };
       success = result.uploaded;
     } catch (error) {
