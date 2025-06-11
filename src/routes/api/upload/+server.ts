@@ -282,6 +282,22 @@ export const POST: RequestHandler = async ({ request }) => {
     let swingId;
     if (success) {
       try {
+        // First, ensure user exists in pure_users table
+        console.log('🔍 Ensuring user exists in pure_users table:', userId);
+        const { error: upsertError } = await adminClient
+          .from('pure_users')
+          .upsert({ 
+            id: userId, 
+            email: user.email || `user-${userId}@temp.com`,
+            plan: 'starter'
+          }, { onConflict: 'id' });
+
+        if (upsertError) {
+          console.error('⚠️ User upsert warning (continuing):', upsertError);
+        } else {
+          console.log('✅ User ensured in pure_users table');
+        }
+
         // Create video URL for swing submission
         const videoUrls: Record<string, string> = {
           single: `https://${R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uploadResult.key}`
