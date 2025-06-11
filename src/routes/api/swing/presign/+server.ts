@@ -50,19 +50,22 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // Get R2 endpoint (always use default for presigned URLs)
-    const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    // Use custom domain if available to avoid SSL handshake issues
+    const useCustomDomain = R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com';
+    const r2Endpoint = useCustomDomain 
+      ? `https://${R2_CUSTOM_DOMAIN}`
+      : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-    console.log('Debug R2 config:', {
+    console.log('🔗 R2 Upload Endpoint:', {
       R2_CUSTOM_DOMAIN,
-      isCustomDomain: Boolean(R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com'),
+      useCustomDomain,
       r2Endpoint
     });
 
     const s3Client = new S3Client({
       region: 'auto',
       endpoint: r2Endpoint,
-      forcePathStyle: true,
+      forcePathStyle: !useCustomDomain, // Custom domains don't need path-style
       credentials: {
         accessKeyId: R2_ACCESS_KEY,
         secretAccessKey: R2_SECRET_KEY,
