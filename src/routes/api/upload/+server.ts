@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
+import https from 'https';
 import { Redis } from '@upstash/redis';
 import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
@@ -40,6 +42,14 @@ console.log('🔗 Backend R2 Config (PROPER Custom Domain):', {
   reason: useCustomDomain ? 'Using custom domain (bucket in path)' : 'Fallback to default'
 });
 
+// Create custom HTTPS agent to handle SSL handshake issues
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false, // Allow self-signed certificates
+  secureProtocol: 'TLSv1_2_method', // Force TLS 1.2
+  keepAlive: true,
+  timeout: 30000,
+});
+
 const s3Client = new S3Client({
   region: 'auto',
   endpoint: r2Endpoint,
@@ -48,6 +58,11 @@ const s3Client = new S3Client({
     accessKeyId: R2_ACCESS_KEY,
     secretAccessKey: R2_SECRET_KEY,
   },
+  requestHandler: new NodeHttpHandler({
+    httpsAgent,
+    connectionTimeout: 30000,
+    requestTimeout: 60000,
+  }),
 });
 
 // Rate limiting using Upstash Redis
