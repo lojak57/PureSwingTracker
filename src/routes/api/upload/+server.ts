@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Redis } from '@upstash/redis';
 import { createClient } from '@supabase/supabase-js';
@@ -112,25 +112,22 @@ const uploadFileToR2 = async (
       FileName: file.name
     });
     
-    const upload = new Upload({
-      client: s3Client,
-      params: {
-        Bucket: R2_BUCKET_NAME,
-        Key: key,
-        Body: file.stream(),
-        ContentType: file.type,
-        Metadata: {
-          'uploaded-by': userId,
-          'upload-timestamp': new Date().toISOString(),
-          'original-filename': file.name
-        }
-      },
+    // Use direct PutObjectCommand instead of Upload for better error visibility
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: new Uint8Array(await file.arrayBuffer()), // Convert to Uint8Array for S3
+      ContentType: file.type,
+      Metadata: {
+        'uploaded-by': userId,
+        'upload-timestamp': new Date().toISOString(),
+        'original-filename': file.name
+      }
     });
 
-    console.log('Starting Upload.done()...');
-    // Wait for upload completion
-    const result = await upload.done();
-    console.log('Upload.done() result:', result);
+    console.log('Sending PutObjectCommand...');
+    const result = await s3Client.send(command);
+    console.log('PutObjectCommand result:', result);
     
     console.log(`Upload successful - key: ${key}`);
     return { key, size: file.size, uploaded: true };
