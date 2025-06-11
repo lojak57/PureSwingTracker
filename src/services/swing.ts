@@ -290,25 +290,15 @@ export class SwingService {
   }
 
   /**
-   * Upload all recordings in a session (with feature flag support)
+   * Upload all recordings in a session (FORCED presigned URLs)
    */
   static async uploadSession(
     session: SwingSession,
     mode: 'training' | 'quick' = 'training',
     onProgress?: (angle: AngleType, progress: number) => void
   ): Promise<UploadResponse> {
-    // Use feature flag to determine upload method
-    if (featureFlags.useBackendUpload) {
-      console.log('🚀 Using backend upload proxy');
-      return this.uploadSessionBackend(session, mode, (progress) => {
-        // Distribute progress across all angles for backward compatibility
-        const angles: AngleType[] = mode === 'quick' ? ['down_line'] : ['down_line', 'face_on', 'overhead'];
-        angles.forEach(angle => onProgress?.(angle, progress));
-      });
-    }
-
-    // Legacy presigned URL upload
-    console.log('📋 Using presigned URL upload');
+    // 🛠️ FORCING presigned upload to bypass 413 error
+    console.log('🛠️ FORCING presigned upload - bypassing feature flag');
     try {
       // Get presigned URLs
       const urlResponse = await this.getPresignedUrls(session.category);
