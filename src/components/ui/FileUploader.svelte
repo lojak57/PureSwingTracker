@@ -1,6 +1,6 @@
 <!--
-  File Upload Component for Swing Videos
-  Supports drag & drop, multiple angles, and integrates with quota system
+  File Upload Component for Single Swing Video
+  Supports drag & drop for single video upload with 4MB limit
 -->
 
 <script lang="ts">
@@ -11,7 +11,8 @@
   export let existingFiles: Record<AngleType, Blob | File | null> = {
     down_line: null,
     face_on: null,
-    overhead: null
+    overhead: null,
+    single: null
   };
   export let disabled = false;
 
@@ -21,8 +22,7 @@
     error: { message: string };
   }>();
 
-  let dragOverStates: Record<string, boolean> = {};
-  let uploadProgress: Record<string, number> = {};
+  let isDragOver = false;
 
   // File validation - 4MB limit for Vercel compatibility
   function validateVideoFile(file: File): { valid: boolean; error?: string } {
@@ -44,50 +44,50 @@
   }
 
   // Handle file selection
-  function handleFileSelect(angleId: string, file: File) {
+  function handleFileSelect(file: File) {
     const validation = validateVideoFile(file);
     if (!validation.valid) {
       dispatch('error', { message: validation.error || 'Invalid file' });
       return;
     }
 
-    dispatch('fileSelected', { angleId, file });
+    dispatch('fileSelected', { angleId: 'single', file });
   }
 
   // Handle drag and drop
-  function handleDrop(event: DragEvent, angleId: string) {
+  function handleDrop(event: DragEvent) {
     event.preventDefault();
-    dragOverStates[angleId] = false;
+    isDragOver = false;
     
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
-      handleFileSelect(angleId, files[0]);
+      handleFileSelect(files[0]);
     }
   }
 
-  function handleDragOver(event: DragEvent, angleId: string) {
+  function handleDragOver(event: DragEvent) {
     event.preventDefault();
-    dragOverStates[angleId] = true;
+    isDragOver = true;
   }
 
-  function handleDragLeave(angleId: string) {
-    dragOverStates[angleId] = false;
+  function handleDragLeave() {
+    isDragOver = false;
   }
 
   // Handle input file selection
-  function handleInputChange(event: Event, angleId: string) {
+  function handleInputChange(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (file) {
-      handleFileSelect(angleId, file);
+      handleFileSelect(file);
     }
     // Reset input
     input.value = '';
   }
 
   // Remove file
-  function removeFile(angleId: string) {
-    dispatch('fileRemoved', { angleId });
+  function removeFile() {
+    dispatch('fileRemoved', { angleId: 'single' });
   }
 
   // Format file size
@@ -98,6 +98,9 @@
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
+
+  $: singleAngle = angles.find(a => a.id === 'single') || angles[0];
+  $: hasFile = existingFiles.single;
 </script>
 
 <div class="space-y-6">
@@ -108,114 +111,100 @@
     </p>
   </div>
 
-  <div class="grid gap-4">
-    {#each angles as angle}
-      {@const hasFile = existingFiles[angle.id as AngleType]}
-      {@const isDragOver = dragOverStates[angle.id]}
-      
-      <div class="border rounded-lg p-4">
-        <div class="flex items-start space-x-4">
-          <!-- Angle Info -->
-          <div class="flex-shrink-0">
-            <span class="text-2xl">{angle.icon}</span>
-          </div>
-          
-          <div class="flex-1">
-            <h4 class="font-medium text-gray-900">{angle.name}</h4>
-            <p class="text-sm text-gray-600 mb-3">{angle.description}</p>
+  <!-- Single Video Upload -->
+  <div class="border rounded-lg p-6">
+    <div class="flex items-start space-x-4 mb-4">
+      <span class="text-3xl">{singleAngle.icon}</span>
+      <div>
+        <h4 class="font-medium text-gray-900 text-lg">{singleAngle.name}</h4>
+        <p class="text-sm text-gray-600">{singleAngle.description}</p>
+      </div>
+    </div>
             
-            {#if hasFile}
-              <!-- File Selected State -->
-              <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center space-x-3">
-                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <div>
-                      <p class="text-sm font-medium text-green-900">
-                        {hasFile instanceof File ? hasFile.name : 'Recorded Video'}
-                      </p>
-                      <p class="text-xs text-green-700">{formatFileSize(hasFile.size)}</p>
-                    </div>
-                  </div>
-                  <button
-                    on:click={() => removeFile(angle.id)}
-                    disabled={disabled}
-                    class="text-green-600 hover:text-green-800 disabled:opacity-50"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            {:else}
-              <!-- Upload Zone -->
-              <div
-                class="border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-200
-                  {isDragOver 
-                    ? 'border-blue-400 bg-blue-50' 
-                    : 'border-gray-300 hover:border-gray-400'
-                  }
-                  {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
-                on:drop={(e) => handleDrop(e, angle.id)}
-                on:dragover={(e) => handleDragOver(e, angle.id)}
-                on:dragleave={() => handleDragLeave(angle.id)}
-              >
-                <input
-                  type="file"
-                  accept="video/*"
-                  id="file-{angle.id}"
-                  class="hidden"
-                  {disabled}
-                  on:change={(e) => handleInputChange(e, angle.id)}
-                />
-                
-                <label for="file-{angle.id}" class="cursor-pointer block">
-                  <svg class="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                  </svg>
-                  
-                  <p class="text-sm font-medium text-gray-900">
-                    {isDragOver ? 'Drop video here' : 'Click to upload or drag & drop'}
-                  </p>
-                  <p class="text-xs text-gray-600 mt-1">
-                    MP4, MOV, WebM up to 200MB
-                  </p>
-                </label>
-              </div>
-            {/if}
+    {#if hasFile}
+      <!-- File Selected State -->
+      <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <p class="text-sm font-medium text-green-900">
+                {hasFile instanceof File ? hasFile.name : 'Recorded Video'}
+              </p>
+              <p class="text-xs text-green-700">{formatFileSize(hasFile.size)}</p>
+            </div>
           </div>
+          <button
+            on:click={removeFile}
+            disabled={disabled}
+            class="text-green-600 hover:text-green-800 disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
         </div>
       </div>
-    {/each}
-  </div>
-
-  <!-- Upload Summary -->
-  <div class="bg-gray-50 rounded-lg p-4">
-    <div class="flex items-center justify-between text-sm">
-      <span class="text-gray-600">Files selected:</span>
-      <span class="font-medium">
-        {Object.values(existingFiles).filter(f => f !== null).length} of {angles.length}
-      </span>
-    </div>
-    
-    {#if Object.values(existingFiles).some(f => f !== null)}
-      <div class="mt-2 text-xs text-gray-500">
-        Total size: {formatFileSize(
-          Object.values(existingFiles)
-            .filter(f => f !== null)
-            .reduce((sum, file) => sum + (file?.size || 0), 0)
-        )}
+    {:else}
+      <!-- Upload Zone -->
+      <div
+        class="border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 group
+          {isDragOver 
+            ? 'border-blue-400 bg-blue-50 scale-[1.02]' 
+            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 hover:scale-[1.01] hover:shadow-lg'
+          }
+          {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
+        on:drop={handleDrop}
+        on:dragover={handleDragOver}
+        on:dragleave={handleDragLeave}
+      >
+        <input
+          type="file"
+          accept="video/*"
+          id="file-single"
+          class="hidden"
+          {disabled}
+          on:change={handleInputChange}
+        />
+        
+        <label for="file-single" class="cursor-pointer block">
+          <svg class="mx-auto h-12 w-12 text-gray-400 mb-4 group-hover:text-blue-500 group-hover:scale-110 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          
+          <p class="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-700 transition-colors">
+            {isDragOver ? 'Drop video here' : 'Click to upload or drag & drop'}
+          </p>
+          <p class="text-sm text-gray-600">
+            MP4, MOV, WebM up to 4MB
+          </p>
+        </label>
       </div>
     {/if}
   </div>
+
+  <!-- Upload Summary -->
+  {#if hasFile}
+    <div class="bg-gray-50 rounded-lg p-4">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-600">Video ready:</span>
+        <span class="font-medium text-green-600">
+          {formatFileSize(hasFile.size)}
+        </span>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
-  /* Smooth drag and drop transitions */
+  /* Enhanced hover and drag effects */
   .border-dashed {
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+    transition: all 0.3s ease;
+  }
+  
+  .group:hover svg {
+    transform: scale(1.1);
   }
 </style> 

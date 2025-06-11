@@ -22,6 +22,7 @@
   // Recording state using SwingService
   let swingSession: SwingSession | null = null;
   let uploadProgress: Record<AngleType, number> = {
+    single: 0,
     down_line: 0,
     face_on: 0,
     overhead: 0
@@ -29,39 +30,15 @@
 
   const angles = [
     {
-      id: 'down_line',
-      name: 'Down the Line',
-      description: 'Position camera behind you, looking down your target line',
-      icon: '📹',
-      instructions: [
-        'Stand behind the golfer',
-        'Camera at chest height',
-        'Frame includes full swing motion',
-        'Keep camera steady'
-      ]
-    },
-    {
-      id: 'face_on',
-      name: 'Face On',
-      description: 'Position camera facing you from the side',
+      id: 'single',
+      name: 'Swing Video',
+      description: 'Record your swing from your best available angle',
       icon: '🎥',
       instructions: [
-        'Stand to the side of golfer',
-        'Camera at waist height',
-        'Show full body in frame',
-        'Capture ball contact clearly'
-      ]
-    },
-    {
-      id: 'overhead',
-      name: 'Overhead',
-      description: 'Position camera above, looking down at setup',
-      icon: '📷',
-      instructions: [
-        'Hold camera overhead',
-        'Look straight down at setup',
-        'Include ball and stance',
-        'Keep hand steady'
+        'Choose your best available angle (side, front, or back)',
+        'Frame your full body and swing motion',
+        'Capture the complete swing from setup to follow-through',
+        'Keep camera steady and well-lit'
       ]
     }
   ];
@@ -110,32 +87,25 @@
       return;
     }
     
-    // Update session with new recording
-    swingSession = SwingService.addRecording(swingSession, angleId as AngleType, blob);
+    // Update session with new recording for single video
+    swingSession = SwingService.addRecording(swingSession, 'single', blob);
     
-    // Auto-advance to next angle if not on last one
-    const currentAngleIndex = angles.findIndex(a => a.id === angleId);
-    if (currentAngleIndex < angles.length - 1) {
-      // Move to next angle automatically
-      setTimeout(() => {
-        currentStep = 1; // Stay on recording step but advance angle
-      }, 1000);
-    } else {
-      // All recordings complete, go to review
+    // Single video complete, go to review
+    setTimeout(() => {
       currentStep = 2;
-    }
+    }, 1000);
   };
 
-  const handleRetakeVideo = (angleId: string) => {
+  const handleRetakeVideo = () => {
     if (!swingSession) return;
-    swingSession = SwingService.removeRecording(swingSession, angleId as AngleType);
+    swingSession = SwingService.removeRecording(swingSession, 'single');
     currentStep = 1; // Go back to recording/uploading
   };
 
   const handleFileSelected = (event: CustomEvent<{angleId: string, file: File}>) => {
     if (!swingSession) return;
     
-    const { angleId, file } = event.detail;
+    const { file } = event.detail;
     
     // Validate file
     const validation = SwingService.validateRecording(file);
@@ -144,8 +114,8 @@
       return;
     }
     
-    // Add file to session
-    swingSession = SwingService.addFileUpload(swingSession, angleId as AngleType, file);
+    // Add file to session for single video
+    swingSession = SwingService.addFileUpload(swingSession, 'single', file);
     
     // Clear any previous errors
     error = '';
@@ -153,7 +123,7 @@
 
   const handleFileRemoved = (event: CustomEvent<{angleId: string}>) => {
     if (!swingSession) return;
-    swingSession = SwingService.removeRecording(swingSession, event.detail.angleId as AngleType);
+    swingSession = SwingService.removeRecording(swingSession, 'single');
   };
 
   const handleFileError = (event: CustomEvent<{message: string}>) => {
@@ -195,7 +165,7 @@
     }
   };
 
-  $: isAllRecorded = swingSession ? Object.values(swingSession.recordings).every(r => r !== null) : false;
+  $: isAllRecorded = swingSession ? swingSession.recordings.single !== null : false;
 </script>
 
 <svelte:head>
@@ -250,15 +220,15 @@
             <div class="grid grid-cols-2 gap-4">
               <button
                 on:click={() => switchUploadMode('record')}
-                class="p-4 border-2 rounded-lg text-left transition-colors
+                class="group p-4 border-2 rounded-lg text-left transition-all duration-300 cursor-pointer
                   {uploadMode === 'record' 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'}"
+                    ? 'border-blue-500 bg-blue-50 shadow-md' 
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 hover:-translate-y-1 hover:shadow-lg'}"
               >
                 <div class="flex items-center space-x-3">
-                  <span class="text-2xl">📹</span>
+                  <span class="text-2xl group-hover:scale-110 transition-transform duration-200">📹</span>
                   <div>
-                    <h4 class="font-medium text-gray-900">Record Now</h4>
+                    <h4 class="font-medium text-gray-900 group-hover:text-blue-700 transition-colors">Record Now</h4>
                     <p class="text-sm text-gray-600">Use your camera to record live</p>
                   </div>
                 </div>
@@ -266,15 +236,15 @@
               
               <button
                 on:click={() => switchUploadMode('upload')}
-                class="p-4 border-2 rounded-lg text-left transition-colors
+                class="group p-4 border-2 rounded-lg text-left transition-all duration-300 cursor-pointer
                   {uploadMode === 'upload' 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'}"
+                    ? 'border-blue-500 bg-blue-50 shadow-md' 
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 hover:-translate-y-1 hover:shadow-lg'}"
               >
                 <div class="flex items-center space-x-3">
-                  <span class="text-2xl">📁</span>
+                  <span class="text-2xl group-hover:scale-110 transition-transform duration-200">📁</span>
                   <div>
-                    <h4 class="font-medium text-gray-900">Upload Files</h4>
+                    <h4 class="font-medium text-gray-900 group-hover:text-blue-700 transition-colors">Upload Files</h4>
                     <p class="text-sm text-gray-600">Choose videos from your device</p>
                   </div>
                 </div>
@@ -285,8 +255,8 @@
           <div class="space-y-4">
             <p class="text-gray-600">
               {uploadMode === 'record' 
-                ? "You'll record three different camera angles. Each video should be 10-15 seconds long, capturing your complete swing motion."
-                : "Upload videos from your device for each camera angle. Maximum 200MB per video."
+                ? "Record a single swing video from your best available angle. Video should be 10-15 seconds long, capturing your complete swing motion."
+                : "Upload a single swing video from your device. Maximum 4MB per video for quick analysis."
               }
             </p>
             
@@ -311,7 +281,7 @@
           <div class="mt-6">
             <button
               on:click={() => currentStep = 1}
-              class="btn-primary"
+              class="btn-primary hover:cursor-pointer"
             >
               {uploadMode === 'record' ? 'Start Recording' : 'Start Uploading'}
             </button>
@@ -331,7 +301,7 @@
           <div class="bg-white rounded-xl shadow-sm p-6">
             <FileUploader
               {angles}
-              existingFiles={swingSession?.recordings || { down_line: null, face_on: null, overhead: null }}
+              existingFiles={swingSession?.recordings || { down_line: null, face_on: null, overhead: null, single: null }}
               disabled={isUploading}
               on:fileSelected={handleFileSelected}
               on:fileRemoved={handleFileRemoved}
@@ -362,53 +332,49 @@
       {:else if currentStep === 2}
         <!-- Review & Upload -->
         <div class="bg-white rounded-xl shadow-sm p-6">
-          <h2 class="text-xl font-semibold mb-4">Review Your Recordings</h2>
+          <h2 class="text-xl font-semibold mb-4">Review Your Recording</h2>
           
-          <div class="grid gap-4 mb-6">
-            {#each angles as angle}
-              <div class="flex items-center justify-between p-4 border rounded-lg">
-                <div class="flex items-center space-x-3">
-                  <span class="text-xl">{angle.icon}</span>
-                  <div>
-                    <h3 class="font-medium">{angle.name}</h3>
-                    <p class="text-sm text-gray-600">
-                      {swingSession?.recordings[angle.id as AngleType] ? 'Recorded' : 'Not recorded'}
-                    </p>
-                  </div>
-                </div>
-                <div class="flex space-x-2">
-                  {#if swingSession?.recordings[angle.id as AngleType]}
-                    <span class="text-green-600">✓</span>
-                    <button
-                      on:click={() => handleRetakeVideo(angle.id)}
-                      class="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      Retake
-                    </button>
-                  {:else}
-                    <span class="text-red-600">✗</span>
-                  {/if}
+          <div class="mb-6">
+            <div class="flex items-center justify-between p-4 border rounded-lg">
+              <div class="flex items-center space-x-3">
+                <span class="text-xl">{angles[0].icon}</span>
+                <div>
+                  <h3 class="font-medium">{angles[0].name}</h3>
+                  <p class="text-sm text-gray-600">
+                    {swingSession?.recordings.single ? 'Recorded' : 'Not recorded'}
+                  </p>
                 </div>
               </div>
-            {/each}
+              <div class="flex space-x-2">
+                {#if swingSession?.recordings.single}
+                  <span class="text-green-600">✓</span>
+                  <button
+                    on:click={handleRetakeVideo}
+                    class="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                  >
+                    Retake
+                  </button>
+                {:else}
+                  <span class="text-red-600">✗</span>
+                {/if}
+              </div>
+            </div>
           </div>
 
           <!-- Upload Progress -->
           {#if isUploading}
             <div class="mb-6 space-y-3">
-              <h3 class="font-medium text-gray-900">Uploading Videos...</h3>
-              {#each angles as angle}
-                <div class="flex items-center space-x-3">
-                  <span class="text-sm w-20">{angle.name}:</span>
-                  <div class="flex-1 bg-gray-200 rounded-full h-2">
-                    <div 
-                      class="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                      style="width: {uploadProgress[angle.id as AngleType]}%"
-                    ></div>
-                  </div>
-                  <span class="text-sm text-gray-600 w-12">{uploadProgress[angle.id as AngleType]}%</span>
+              <h3 class="font-medium text-gray-900">Uploading Video...</h3>
+              <div class="flex items-center space-x-3">
+                <span class="text-sm w-20">{angles[0].name}:</span>
+                <div class="flex-1 bg-gray-200 rounded-full h-2">
+                  <div 
+                    class="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                    style="width: {uploadProgress.single}%"
+                  ></div>
                 </div>
-              {/each}
+                <span class="text-sm text-gray-600 w-12">{uploadProgress.single}%</span>
+              </div>
             </div>
           {/if}
 

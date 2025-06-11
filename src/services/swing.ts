@@ -3,7 +3,7 @@ import type { SwingCategory, VideoUrls } from '$lib/supabase';
 import { featureFlags } from '$lib/feature-flags';
 
 export type RecordingState = 'setup' | 'recording' | 'recorded' | 'complete';
-export type AngleType = 'down_line' | 'face_on' | 'overhead';
+export type AngleType = 'down_line' | 'face_on' | 'overhead' | 'single';
 
 export interface SwingSession {
   category: SwingCategory;
@@ -42,14 +42,16 @@ export class SwingService {
       recordings: {
         down_line: null,
         face_on: null,
-        overhead: null
+        overhead: null,
+        single: null
       },
-      currentAngle: 'down_line',
+      currentAngle: 'single',
       state: 'setup',
       uploadProgress: {
         down_line: 0,
         face_on: 0,
-        overhead: 0
+        overhead: 0,
+        single: 0
       },
       uploadMode: mode
     };

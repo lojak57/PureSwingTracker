@@ -136,7 +136,8 @@ export interface AIFlawsOutput {
 }
 
 export interface VideoUrls {
-  down_line: string;
-  face_on: string;
-  overhead: string;
+  down_line?: string;
+  face_on?: string;
+  overhead?: string;
+  single?: string;
 } 

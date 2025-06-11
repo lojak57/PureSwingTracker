@@ -68,10 +68,7 @@
       const blob = new Blob(recordedChunks, { type: 'video/webm' });
       dispatch('recordingComplete', { angleId: currentAngle.id, blob });
       
-      // Auto-advance to next angle
-      if (currentAngleIndex < angles.length - 1) {
-        currentAngleIndex++;
-      }
+      // Single video mode - no auto-advance needed
     };
 
     // Countdown before recording
@@ -119,42 +116,28 @@
     }
   };
 
-  const skipToAngle = (index: number) => {
-    currentAngleIndex = index;
-  };
+  // Single video mode - no angle switching needed
 </script>
 
 <div class="bg-white rounded-xl shadow-sm p-6">
   <h2 class="text-xl font-semibold mb-4">Record Videos</h2>
   
-  <!-- Angle Selector -->
-  <div class="flex space-x-2 mb-6 overflow-x-auto">
-    {#each angles as angle, index}
-      <button
-        on:click={() => skipToAngle(index)}
-        class="flex-shrink-0 px-4 py-2 rounded-lg border {
-          index === currentAngleIndex 
-            ? 'bg-primary-100 border-primary-300 text-primary-700' 
-            : 'border-gray-300 hover:bg-gray-50'
-        }"
-      >
-        <span class="mr-2">{angle.icon}</span>
-        {angle.name}
-        {#if recordings[angle.id]}
-          <span class="ml-2 text-green-600">✓</span>
-        {/if}
-      </button>
-    {/each}
+  <!-- Single Video Info -->
+  <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <h3 class="font-medium text-blue-900 mb-2 flex items-center">
+      <span class="mr-2">{currentAngle.icon}</span>
+      {currentAngle.name}
+      {#if recordings[currentAngle.id]}
+        <span class="ml-2 text-green-600">✓ Recorded</span>
+      {/if}
+    </h3>
+    <p class="text-blue-700 mb-3">{currentAngle.description}</p>
   </div>
 
   {#if currentAngle}
-    <!-- Current Angle Instructions -->
-    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-      <h3 class="font-medium text-blue-900 mb-2">
-        {currentAngle.icon} {currentAngle.name}
-      </h3>
-      <p class="text-blue-700 mb-3">{currentAngle.description}</p>
-      <ul class="text-sm text-blue-600 space-y-1">
+    <!-- Recording Instructions -->
+    <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+      <ul class="text-sm text-gray-700 space-y-1">
         {#each currentAngle.instructions as instruction}
           <li>• {instruction}</li>
         {/each}
