@@ -343,14 +343,7 @@ export const POST: RequestHandler = async ({ request }) => {
             await adminClient.rpc('enqueue_analysis_job', { p_swing_id: swing.id });
             console.log(`🔄 Analysis job queued for swing: ${swing.id}`);
             
-            // Trigger analysis worker immediately (in background)
-            fetch(`${new URL(request.url).origin}/api/swings/analyze-queue`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
-            }).catch(error => {
-              console.warn('⚠️ Failed to trigger analysis worker:', error);
-              // Don't fail upload if worker trigger fails
-            });
+            // Analysis will be handled by Supabase Edge Function automatically
             
           } catch (queueError) {
             console.error('⚠️ Failed to queue analysis job:', queueError);
