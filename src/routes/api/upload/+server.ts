@@ -102,6 +102,15 @@ const uploadFileToR2 = async (
 ): Promise<{ key: string; size: number; uploaded: boolean }> => {
   try {
     console.log(`Starting upload - user: ${userId}, key: ${key}, size: ${file.size}`);
+    console.log('Upload configuration:', {
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      ContentType: file.type,
+      ClientEndpoint: r2Endpoint,
+      ForcePathStyle: Boolean(useCustomDomain),
+      FileSize: file.size,
+      FileName: file.name
+    });
     
     const upload = new Upload({
       client: s3Client,
@@ -118,8 +127,10 @@ const uploadFileToR2 = async (
       },
     });
 
+    console.log('Starting Upload.done()...');
     // Wait for upload completion
-    await upload.done();
+    const result = await upload.done();
+    console.log('Upload.done() result:', result);
     
     console.log(`Upload successful - key: ${key}`);
     return { key, size: file.size, uploaded: true };
@@ -130,9 +141,24 @@ const uploadFileToR2 = async (
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : 'No stack',
-      cause: error instanceof Error ? error.cause : 'No cause'
+      cause: error instanceof Error ? error.cause : 'No cause',
+      errorType: typeof error,
+      errorConstructor: error?.constructor?.name,
+      rawError: JSON.stringify(error, Object.getOwnPropertyNames(error))
     });
-    throw new Error(`Upload failed for ${key}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    // Try to get more specific error information
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object') {
+      errorMessage = JSON.stringify(error);
+    }
+    
+    console.error(`Throwing error with message: ${errorMessage}`);
+    throw new Error(`Upload failed for ${key}: ${errorMessage}`);
   }
 };
 
