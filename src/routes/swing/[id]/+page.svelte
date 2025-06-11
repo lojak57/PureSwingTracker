@@ -6,6 +6,8 @@
   let status = 'processing';
   let swingId = '';
   
+  let analyzing = false;
+  
   onMount(() => {
     swingId = $page.params.id;
     status = $page.url.searchParams.get('status') || 'processing';
@@ -17,6 +19,27 @@
       }, 2000);
     }
   });
+  
+  async function triggerAnalysis() {
+    analyzing = true;
+    try {
+      const response = await fetch('/api/swings/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Analysis triggered:', result);
+        // Redirect to dashboard to see results
+        setTimeout(() => goto('/dashboard'), 1000);
+      }
+    } catch (error) {
+      console.error('Failed to trigger analysis:', error);
+    } finally {
+      analyzing = false;
+    }
+  }
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-augusta-50 to-augusta-100 flex items-center justify-center">
@@ -42,8 +65,16 @@
       Swing ID: {swingId}
     </div>
     
-    <p class="text-sm text-augusta-500">
+    <p class="text-sm text-augusta-500 mb-4">
       Redirecting to dashboard...
     </p>
+    
+    <button 
+      on:click={triggerAnalysis}
+      disabled={analyzing}
+      class="px-4 py-2 bg-augusta-600 text-white rounded-lg hover:bg-augusta-700 disabled:opacity-50"
+    >
+      {analyzing ? 'Analyzing...' : 'Analyze Now'}
+    </button>
   </div>
 </div> 
