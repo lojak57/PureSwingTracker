@@ -1,8 +1,10 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { supabase } from '$lib/supabase';
+  import SwingMetrics from '../../../../components/golf/SwingMetrics.svelte';
+  import { swingMetrics, isAnalyzing, subscribeToMetrics, getExistingMetrics } from '../../../../stores/swingMetrics';
   
   let swingId = '';
   let swing: any = null;
@@ -11,10 +13,17 @@
   let error = '';
   let newMessage = '';
   let sending = false;
+  let unsubscribeMetrics: (() => void) | null = null;
   
   onMount(async () => {
     swingId = $page.params.id;
     await loadSwingAndMessages();
+  });
+  
+  onDestroy(() => {
+    if (unsubscribeMetrics) {
+      unsubscribeMetrics();
+    }
   });
   
   async function loadSwingAndMessages() {
@@ -38,6 +47,15 @@
       
       if (swingResponse.ok) {
         swing = await swingResponse.json();
+        
+        // Set up metrics subscription and check for existing metrics
+        if (swing && session.access_token) {
+          // Check for existing metrics first
+          await getExistingMetrics(swingId, session.access_token);
+          
+          // Subscribe to real-time updates
+          unsubscribeMetrics = subscribeToMetrics(swingId, session.access_token);
+        }
       } else {
         error = 'Failed to load swing data';
         return;
@@ -168,49 +186,65 @@
         </div>
       </div>
       
-      <!-- Video + Chat Layout -->
+      <!-- Video + Metrics + Chat Layout -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        <!-- Video Player -->
-        <div class="bg-white rounded-xl shadow-sm p-4">
-          <h2 class="text-lg font-semibold text-augusta-800 mb-4">Your Swing</h2>
+        <!-- Left Column: Video + Metrics -->
+        <div class="space-y-6">
           
-          {#if swing?.video_urls?.single}
-            <div class="relative rounded-lg overflow-hidden bg-black">
-              <video 
-                controls 
-                class="w-full h-auto"
-              >
-                <source src={swing.video_urls.single} type="video/webm">
-                <source src={swing.video_urls.single} type="video/mp4">
-                Your browser does not support the video tag.
-              </video>
-            </div>
+          <!-- Video Player -->
+          <div class="bg-white rounded-xl shadow-sm p-4">
+            <h2 class="text-lg font-semibold text-augusta-800 mb-4">Your Swing</h2>
             
-            <!-- Video Info -->
-            <div class="mt-4 text-sm text-augusta-600">
-              <div class="flex justify-between items-center">
-                <span>Category: <strong>{swing.category}</strong></span>
-                <span>Mode: <strong>{swing.upload_mode}</strong></span>
+            {#if swing?.video_urls?.single}
+              <div class="relative rounded-lg overflow-hidden bg-black">
+                <video 
+                  controls 
+                  class="w-full h-auto"
+                >
+                  <source src={swing.video_urls.single} type="video/webm">
+                  <source src={swing.video_urls.single} type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
               </div>
-              {#if swing.created_at}
-                <div class="mt-1">
-                  Uploaded: {new Date(swing.created_at).toLocaleDateString()}
+              
+              <!-- Video Info -->
+              <div class="mt-4 text-sm text-augusta-600">
+                <div class="flex justify-between items-center">
+                  <span>Category: <strong>{swing.category}</strong></span>
+                  <span>Mode: <strong>{swing.upload_mode}</strong></span>
                 </div>
-              {/if}
-            </div>
-          {:else}
-            <div class="bg-gray-100 rounded-lg p-8 text-center">
-              <p class="text-augusta-500">Video not available</p>
-            </div>
-          {/if}
+                {#if swing.created_at}
+                  <div class="mt-1">
+                    Uploaded: {new Date(swing.created_at).toLocaleDateString()}
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="bg-gray-100 rounded-lg p-8 text-center">
+                <p class="text-augusta-500">Video not available</p>
+              </div>
+            {/if}
+          </div>
+          
+          <!-- Swing Metrics -->
+          <div class="bg-white rounded-xl shadow-sm">
+            <SwingMetrics swing={swing} metrics={$swingMetrics} />
+          </div>
+          
         </div>
         
-        <!-- Chat Interface -->
-        <div class="bg-white rounded-xl shadow-sm flex flex-col h-[600px]">
+        <!-- Right Column: Chat Interface -->
+        <div class="bg-white rounded-xl shadow-sm flex flex-col h-[700px]">
           <div class="p-4 border-b border-gray-200">
             <h2 class="text-lg font-semibold text-augusta-800">Coach Oliver</h2>
             <p class="text-sm text-augusta-600">Your AI Golf Coach</p>
+            {#if $isAnalyzing}
+              <div class="mt-2 flex items-center text-sm text-blue-600">
+                <div class="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full mr-2"></div>
+                Analyzing biomechanics...
+              </div>
+            {/if}
           </div>
           
           <!-- Messages -->
@@ -218,7 +252,13 @@
             {#if messages.length === 0}
               <div class="text-center text-augusta-500 py-8">
                 <p>No messages yet.</p>
-                <p class="text-sm mt-2">Waiting for analysis to complete...</p>
+                <p class="text-sm mt-2">
+                  {#if $isAnalyzing}
+                    Analyzing your swing biomechanics...
+                  {:else}
+                    Waiting for analysis to complete...
+                  {/if}
+                </p>
               </div>
             {:else}
               {#each messages as message}

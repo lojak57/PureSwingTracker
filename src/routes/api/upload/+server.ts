@@ -306,14 +306,19 @@ export const POST: RequestHandler = async ({ request }) => {
           single: `${workerUrl}/${uploadResult.key}`
         };
 
-        // Create swing record for analysis pipeline
+        // Create swing record with pose metrics support
         const swingData = {
           user_id: userId,
           category,
           video_urls: videoUrls,
-          metadata: { upload_session: uploadSession },
+          metadata: { 
+            upload_session: uploadSession,
+            video_hash: null // Will be calculated by pose service
+          },
           status: 'queued' as const,
           upload_mode: mode,
+          swing_mode: 'quick' as const, // Default to quick mode
+          angle_id: 0,
           r2_validated: true,
           created_at: new Date().toISOString()
         };
@@ -331,7 +336,25 @@ export const POST: RequestHandler = async ({ request }) => {
           console.error('❌ Swing creation error:', insertError);
         } else if (swing) {
           swingId = swing.id;
-          console.log(`💾 Swing record created: ${swing.id} for analysis pipeline`);
+          console.log(`💾 Swing record created: ${swing.id} for pose metrics pipeline`);
+
+          // Enqueue for pose analysis
+          try {
+            await adminClient.rpc('enqueue_analysis_job', { p_swing_id: swing.id });
+            console.log(`🔄 Analysis job queued for swing: ${swing.id}`);
+            
+            // Trigger analysis worker immediately (in background)
+            fetch(`${new URL(request.url).origin}/api/swings/analyze-queue`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            }).catch(error => {
+              console.warn('⚠️ Failed to trigger analysis worker:', error);
+              // Don't fail upload if worker trigger fails
+            });
+            
+          } catch (queueError) {
+            console.error('⚠️ Failed to queue analysis job:', queueError);
+          }
         } else {
           console.error('❌ No swing returned and no error');
         }

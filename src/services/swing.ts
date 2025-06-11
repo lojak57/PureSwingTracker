@@ -454,6 +454,16 @@ export class SwingService {
                   authSession.access_token
                 );
                 
+                // Auto-trigger analysis for large file uploads too
+                if (swingId) {
+                  fetch('/api/swings/analyze-queue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                  }).catch(error => {
+                    console.warn('⚠️ Failed to trigger analysis worker:', error);
+                  });
+                }
+                
                 resolve({ success: true, swingId: swingId || undefined });
               } else {
                 resolve({ 
