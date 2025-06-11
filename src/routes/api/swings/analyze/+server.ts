@@ -14,6 +14,21 @@ export const POST: RequestHandler = async () => {
     console.log('🤖 Starting swing analysis worker...');
     
     // Get next queued swing
+    console.log('🔍 Looking for queued swings...');
+    
+    // First, check all swings to see what we have
+    const { data: allSwings, error: allError } = await adminClient
+      .from('pure_swings')
+      .select('id, status, category, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (allError) {
+      console.error('❌ Error fetching all swings:', allError);
+    } else {
+      console.log('📊 Recent swings in database:', allSwings);
+    }
+    
     const { data: swing, error: fetchError } = await adminClient
       .from('pure_swings')
       .select('*')

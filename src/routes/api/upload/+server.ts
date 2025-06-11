@@ -299,15 +299,21 @@ export const POST: RequestHandler = async ({ request }) => {
           created_at: new Date().toISOString()
         };
 
+        console.log('🔍 Attempting to create swing record:', swingData);
+        
         const { data: swing, error: insertError } = await adminClient
           .from('pure_swings')
           .insert(swingData)
           .select()
           .single();
 
-        if (!insertError && swing) {
+        if (insertError) {
+          console.error('❌ Swing creation error:', insertError);
+        } else if (swing) {
           swingId = swing.id;
           console.log(`💾 Swing record created: ${swing.id} for analysis pipeline`);
+        } else {
+          console.error('❌ No swing returned and no error');
         }
       } catch (error) {
         console.warn('Failed to create swing record:', error);
