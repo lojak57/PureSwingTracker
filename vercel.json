@@ -3,11 +3,5 @@
   "regions": ["iad1"],
   "github": {
     "silent": true
-  },
-  "functions": {
-    "src/routes/api/upload/+server.ts": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
   }
 } 
