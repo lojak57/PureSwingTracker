@@ -69,26 +69,25 @@ export const POST: RequestHandler = async () => {
       })
       .eq('id', swing.id);
 
-    // Create automatic chat message with analysis
-    const chatMessage = `Great swing! I've analyzed your ${swing.category} shot and here's what I found:
+    // Get user info for Coach Oliver context
+    const { data: user } = await adminClient.auth.admin.getUserById(swing.user_id);
+    const { data: profile } = await adminClient
+      .from('pure_profiles')
+      .select('handicap, goals, name')
+      .eq('id', swing.user_id)
+      .single();
 
-**Overall Score: ${analysis.flaws.swing_score}/100**
+    // Generate Coach Oliver's personalized response
+    const coachMessage = await generateCoachOliverResponse(swing, analysis, user?.user, profile);
 
-${analysis.summary}
-
-**Key Areas to Focus On:**
-${analysis.flaws.primary_flaw ? `• ${analysis.flaws.primary_flaw}` : '• Keep working on your fundamentals'}
-${analysis.flaws.secondary_flaw ? `• ${analysis.flaws.secondary_flaw}` : '• Maintain consistent tempo'}
-
-Ready to discuss any specific aspect of your swing? Just ask! 🏌️‍♂️`;
-
+    // Save Coach Oliver's message to chat
     await adminClient
-      .from('chat_messages')
+      .from('pure_chat_messages')
       .insert({
         swing_id: swing.id,
         user_id: swing.user_id,
-        message: chatMessage,
-        is_coach: true,
+        role: 'assistant',
+        content: coachMessage,
         created_at: new Date().toISOString()
       });
 
@@ -109,6 +108,53 @@ Ready to discuss any specific aspect of your swing? Just ask! 🏌️‍♂️`;
     );
   }
 };
+
+async function generateCoachOliverResponse(swing: any, analysis: any, user: any, profile: any) {
+  const model = chooseModel(800);
+  
+  const prompt = `You are Coach Oliver, an experienced PGA professional with 20+ years of teaching elite golfers. 
+
+A golfer just uploaded a ${swing.category} swing for analysis. Here's the technical analysis:
+
+**Technical Analysis Results:**
+- Swing Score: ${analysis.flaws.swing_score}/100
+- Primary Issue: ${analysis.flaws.primary_flaw || 'None identified'}
+- Secondary Issue: ${analysis.flaws.secondary_flaw || 'None identified'}
+- Analysis: ${analysis.summary}
+
+**Golfer Context:**
+- Email: ${user?.email || 'Not provided'}
+- Handicap: ${profile?.handicap || 'Not specified'}
+- Goals: ${profile?.goals || 'Not specified'}
+- Name: ${profile?.name || 'there'}
+
+Create a welcoming, encouraging response that:
+1. Acknowledges their swing upload
+2. Highlights what they did well (be specific if possible)
+3. Addresses the main areas for improvement in an encouraging way
+4. Provides 1-2 specific, actionable tips
+5. Invites them to ask follow-up questions
+
+Keep it conversational, under 150 words, and maintain your warm but authoritative coaching style.`;
+
+  const completion = await openai.chat.completions.create({
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are Coach Oliver, a warm but authoritative PGA professional. Your responses should be encouraging, specific, and actionable.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    max_tokens: 200,
+    temperature: 0.7
+  });
+
+  return completion.choices[0]?.message?.content || 'Great swing! Let me know if you have any questions about your technique.';
+}
 
 async function analyzeSwingWithGPT(swing: any) {
   const model = chooseModel(1000); // Estimate tokens needed
