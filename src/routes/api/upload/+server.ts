@@ -247,7 +247,17 @@ export const POST: RequestHandler = async ({ request }) => {
       uploadResult = { ...result, error: undefined };
       success = result.uploaded;
     } catch (error) {
-      console.error('Upload failed:', error);
+      console.error('🔥 MAIN UPLOAD CATCH - RAW ERROR:', error);
+      console.error('🔥 ERROR TYPE:', typeof error);
+      console.error('🔥 ERROR STRING:', String(error));
+      console.error('🔥 ERROR JSON:', JSON.stringify(error, null, 2));
+      
+      if (error instanceof Error) {
+        console.error('🔥 ERROR.NAME:', error.name);
+        console.error('🔥 ERROR.MESSAGE:', error.message);
+        console.error('🔥 ERROR.STACK:', error.stack);
+      }
+      
       uploadResult = { 
         key: '', 
         size: videoFile.size, 
