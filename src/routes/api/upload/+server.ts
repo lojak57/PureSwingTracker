@@ -30,16 +30,14 @@ const redis = new Redis({
   token: env.KV_KV_REST_API_TOKEN || '',
 });
 
-// Configure S3 client for R2 (PROPER custom domain config)
-// Always use standard R2 endpoint for API calls (custom domain is for public access only)
-const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-const useCustomDomain = false; // Not used for API calls
+// FINAL FIX: Use custom domain to bypass TLS incompatibility with default R2 endpoint
+const r2Endpoint = `https://${R2_CUSTOM_DOMAIN}`;
+const useCustomDomain = true;
 
-console.log('🔗 Backend R2 Config (PROPER Custom Domain):', {
-  useCustomDomain,
+console.log('🎯 FINAL R2 CONFIG - Custom Domain Direct API:', {
   r2Endpoint,
   customDomain: R2_CUSTOM_DOMAIN,
-  reason: useCustomDomain ? 'Using custom domain (bucket in path)' : 'Fallback to default'
+  reason: 'Using custom domain to bypass SSL handshake failures with default endpoint'
 });
 
 // Create custom HTTPS agent to handle SSL handshake issues
@@ -53,7 +51,11 @@ const httpsAgent = new https.Agent({
 const s3Client = new S3Client({
   region: 'auto',
   endpoint: r2Endpoint,
-  forcePathStyle: Boolean(useCustomDomain), // Custom domains need path-style for bucket access
+  
+  // Custom domain configuration for direct API calls
+  bucketEndpoint: true,      // Tell SDK we're using a bucket-specific endpoint
+  forcePathStyle: false,     // Must be false for custom domains to work correctly
+  
   credentials: {
     accessKeyId: R2_ACCESS_KEY,
     secretAccessKey: R2_SECRET_KEY,
