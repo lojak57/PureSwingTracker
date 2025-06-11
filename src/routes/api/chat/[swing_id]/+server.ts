@@ -273,6 +273,14 @@ export const GET: RequestHandler = async ({ params, request }) => {
     // Fetch chat history
     console.log('🔍 GET: Looking for messages with swing_id:', swingId, 'user_id:', user.id);
     
+    // Try querying without user_id filter first to debug
+    const { data: allMessages, error: debugError } = await supabase
+      .from('pure_chat_messages')
+      .select('*')
+      .eq('swing_id', swingId);
+    
+    console.log('🐛 DEBUG: All messages for swing (no user filter):', allMessages?.length || 0, allMessages);
+    
     const { data: messages, error: fetchError } = await supabase
       .from('pure_chat_messages')
       .select('*')
