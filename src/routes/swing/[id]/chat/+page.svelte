@@ -44,22 +44,13 @@
       }
       
       // Load chat messages
-      console.log('🔍 Loading messages for swing:', swingId);
-      console.log('🔑 Auth headers:', authHeaders);
-      
       const messagesResponse = await fetch(`/api/chat/${swingId}`, {
         headers: authHeaders
       });
       
-      console.log('📡 Messages response status:', messagesResponse.status);
-      
       if (messagesResponse.ok) {
         const result = await messagesResponse.json();
-        console.log('✅ Messages loaded:', result);
         messages = result.messages || [];
-      } else {
-        const errorText = await messagesResponse.text();
-        console.error('❌ Failed to load messages:', messagesResponse.status, errorText);
       }
       
     } catch (err) {
