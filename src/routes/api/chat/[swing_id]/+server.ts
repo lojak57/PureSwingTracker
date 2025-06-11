@@ -271,7 +271,15 @@ export const GET: RequestHandler = async ({ params, request }) => {
     }
 
     // Fetch chat history
-    console.log('🔍 Fetching messages for swing_id:', swingId, 'user_id:', user.id);
+    console.log('🔍 Chat API - swing_id:', swingId, 'user_id:', user.id);
+    
+    // Check what messages exist for this swing (without user filter)
+    const { data: allMessages } = await supabase
+      .from('pure_chat_messages')
+      .select('user_id, role')
+      .eq('swing_id', swingId);
+    
+    console.log('📋 All messages for swing:', allMessages?.map(m => ({ user_id: m.user_id, role: m.role })) || []);
     
     const { data: messages, error: fetchError } = await supabase
       .from('pure_chat_messages')
