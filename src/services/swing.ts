@@ -419,9 +419,9 @@ export class SwingService {
       
       console.log(`🔧 LARGE FILE UPLOAD: Direct to Worker - size: ${videoFile.size}, key: ${key}`);
 
-      // Cloudflare Worker R2 Proxy URL with key in path
+      // Cloudflare Worker R2 Proxy URL  
       const workerDomain = 'pure-golf-r2-proxy.varro-golf.workers.dev';
-      const workerUrl = `https://${workerDomain}/${encodeURIComponent(key)}`;
+      const workerUrl = `https://${workerDomain}`;
       
       // Upload directly to Worker with progress tracking
       return new Promise((resolve) => {
@@ -487,6 +487,7 @@ export class SwingService {
         });
 
         xhr.open('PUT', workerUrl);
+        xhr.setRequestHeader('X-File-Key', key);
         xhr.setRequestHeader('Content-Type', videoFile.type);
         xhr.send(videoFile);
       });
