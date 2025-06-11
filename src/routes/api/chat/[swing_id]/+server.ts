@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     if (swingId !== 'general') {
       // Try to fetch swing data (may not exist yet)
       const { data: swingData } = await supabase
-        .from('pure.swings')
+        .from('pure_swings')
         .select('*')
         .eq('id', swingId)
         .eq('user_id', user.id)
@@ -73,7 +73,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Try to get user profile for context (may not exist yet)
     const { data: profileData } = await supabase
-      .from('pure.profiles')
+      .from('pure_profiles')
       .select('handicap, goals, name')
       .eq('id', user.id)
       .single();
@@ -196,7 +196,7 @@ Keep responses conversational and under 150 words.`;
     // Store chat message in database (use NULL for general chat)
     const actualSwingId = swingId === 'general' ? null : swingId;
     const { error: insertError } = await supabase
-      .from('pure.chat_messages')
+      .from('pure_chat_messages')
       .insert([
         {
           swing_id: actualSwingId,
@@ -272,7 +272,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
 
     // Fetch chat history
     const { data: messages, error: fetchError } = await supabase
-      .from('pure.chat_messages')
+      .from('pure_chat_messages')
       .select('*')
       .eq('swing_id', swingId)
       .eq('user_id', user.id)
