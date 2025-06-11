@@ -29,10 +29,9 @@ const redis = new Redis({
 });
 
 // Configure S3 client for R2 (PROPER custom domain config)
-const useCustomDomain = R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com';
-const r2Endpoint = useCustomDomain 
-  ? `https://${R2_CUSTOM_DOMAIN}`
-  : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+// Always use standard R2 endpoint for API calls (custom domain is for public access only)
+const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+const useCustomDomain = false; // Not used for API calls
 
 console.log('🔗 Backend R2 Config (PROPER Custom Domain):', {
   useCustomDomain,
