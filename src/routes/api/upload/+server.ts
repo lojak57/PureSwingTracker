@@ -133,7 +133,8 @@ const uploadFileToWorker = async (
         'Content-Type': file.type,
       },
       body: file.stream(),
-    });
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
 
     if (!response.ok) {
       const errorText = await response.text();
