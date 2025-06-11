@@ -299,7 +299,8 @@ export const POST: RequestHandler = async ({ request }) => {
           created_at: new Date().toISOString()
         };
 
-        console.log('🔍 Attempting to create swing record:', swingData);
+        console.log('🔍 Attempting to create swing record with user_id:', userId);
+        console.log('🔍 Full swing data:', swingData);
         
         const { data: swing, error: insertError } = await adminClient
           .from('pure_swings')
