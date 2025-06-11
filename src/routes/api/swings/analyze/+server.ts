@@ -96,7 +96,8 @@ export const POST: RequestHandler = async ({ request }) => {
     const coachMessage = await generateCoachOliverResponse(swing, analysis, user?.user, profile);
 
     // Save Coach Oliver's message to chat
-    await adminClient
+    console.log(`💬 Inserting chat message for swing ${swing.id} user ${swing.user_id}`);
+    const { error: chatError } = await adminClient
       .from('pure_chat_messages')
       .insert({
         swing_id: swing.id,
@@ -105,6 +106,11 @@ export const POST: RequestHandler = async ({ request }) => {
         content: coachMessage,
         created_at: new Date().toISOString()
       });
+
+    if (chatError) {
+      console.error('❌ Chat message insert failed:', chatError);
+      throw new Error(`Chat message insert failed: ${chatError.message}`);
+    }
 
     console.log(`✅ Completed analysis for swing ${swing.id} and created chat message`);
 
