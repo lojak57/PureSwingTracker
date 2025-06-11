@@ -24,19 +24,19 @@
 
   let isDragOver = false;
 
-  // File validation - 4MB limit for Vercel compatibility
+  // File validation - 25MB limit for modern iPhone videos
   function validateVideoFile(file: File): { valid: boolean; error?: string } {
     // Check file type
     if (!file.type.startsWith('video/')) {
       return { valid: false, error: 'File must be a video (MP4, MOV, WebM, etc.)' };
     }
 
-    // Check file size (4MB limit for Vercel backend)
-    const maxSize = 4 * 1024 * 1024; // 4MB
+    // Check file size (25MB limit for modern videos)
+    const maxSize = 25 * 1024 * 1024; // 25MB
     if (file.size > maxSize) {
       return { 
         valid: false, 
-        error: `File too large: ${Math.round(file.size / 1024 / 1024)}MB. Maximum 4MB allowed.` 
+        error: `File too large: ${Math.round(file.size / 1024 / 1024)}MB. Maximum 25MB allowed.` 
       };
     }
 
@@ -107,7 +107,7 @@
   <div class="text-center mb-6">
     <h3 class="text-lg font-medium text-gray-900 mb-2">Upload Your Swing Video</h3>
     <p class="text-sm text-gray-600">
-      Upload a single swing video from any angle. Max 4MB for quick analysis.
+      Upload a single swing video from any angle. Max 25MB for iPhone videos.
     </p>
   </div>
 
@@ -178,7 +178,7 @@
             {isDragOver ? 'Drop video here' : 'Click to upload or drag & drop'}
           </p>
           <p class="text-sm text-gray-600">
-            MP4, MOV, WebM up to 4MB
+            MP4, MOV, WebM up to 25MB
           </p>
         </label>
       </div>

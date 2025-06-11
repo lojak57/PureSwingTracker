@@ -256,7 +256,7 @@
             <p class="text-gray-600">
               {uploadMode === 'record' 
                 ? "Record a single swing video from your best available angle. Video should be 10-15 seconds long, capturing your complete swing motion."
-                : "Upload a single swing video from your device. Maximum 4MB per video for quick analysis."
+                : "Upload a single swing video from your device. Maximum 25MB per video for iPhone videos."
               }
             </p>
             

@@ -98,14 +98,14 @@ const checkRateLimit = async (userId: string): Promise<boolean> => {
 // File validation - Single video mode
 const validateFile = (file: File): void => {
   const allowedTypes = ['video/webm', 'video/mp4', 'video/quicktime'];
-  const maxFileSize = 4 * 1024 * 1024; // 4MB max for Vercel compatibility
+  const maxFileSize = 25 * 1024 * 1024; // 25MB max for iPhone videos
   
   if (!allowedTypes.includes(file.type)) {
     throw new Error(`Invalid file type: ${file.type}. Allowed: ${allowedTypes.join(', ')}`);
   }
   
   if (file.size > maxFileSize) {
-    throw new Error(`File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 4MB`);
+    throw new Error(`File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 25MB`);
   }
 };
 

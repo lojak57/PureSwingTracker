@@ -330,12 +330,12 @@ export class SwingService {
    * Validate video blob/file constraints
    */
   static validateRecording(blob: Blob | File): { valid: boolean; error?: string } {
-    // Check file size (max 4MB for backend upload)
-    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+    // Check file size (max 25MB for backend upload)
+    const maxSize = 25 * 1024 * 1024; // 25MB in bytes
     if (blob.size > maxSize) {
       return { 
         valid: false, 
-        error: `Video too large: ${Math.round(blob.size / 1024 / 1024)}MB. Max size is 4MB.` 
+        error: `Video too large: ${Math.round(blob.size / 1024 / 1024)}MB. Max size is 25MB.` 
       };
     }
 
