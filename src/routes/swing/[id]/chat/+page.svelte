@@ -99,7 +99,7 @@
         messages = [...messages, {
           id: Date.now() + 1,
           role: 'assistant',
-          content: result.response,
+          content: result.message,
           created_at: new Date().toISOString()
         }];
       } else {
