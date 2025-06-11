@@ -28,18 +28,23 @@ const redis = new Redis({
   token: env.KV_KV_REST_API_TOKEN || '',
 });
 
-// Configure S3 client for R2 (test without custom domain first)
-const r2Endpoint = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+// Configure S3 client for R2 (PROPER custom domain config)
+const useCustomDomain = R2_CUSTOM_DOMAIN && R2_CUSTOM_DOMAIN !== 'your-custom-domain.com';
+const r2Endpoint = useCustomDomain 
+  ? `https://${R2_CUSTOM_DOMAIN}`
+  : `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-console.log('🔗 Backend R2 Config (Testing Default):', {
+console.log('🔗 Backend R2 Config (PROPER Custom Domain):', {
+  useCustomDomain,
   r2Endpoint,
-  reason: 'Testing default endpoint for debugging'
+  customDomain: R2_CUSTOM_DOMAIN,
+  reason: useCustomDomain ? 'Using custom domain (bucket in path)' : 'Fallback to default'
 });
 
 const s3Client = new S3Client({
   region: 'auto',
   endpoint: r2Endpoint,
-  forcePathStyle: true,
+  forcePathStyle: Boolean(useCustomDomain), // Custom domains need path-style for bucket access
   credentials: {
     accessKeyId: R2_ACCESS_KEY,
     secretAccessKey: R2_SECRET_KEY,
