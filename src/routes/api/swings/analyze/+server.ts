@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import { SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY } from '$env/static/private';
 import OpenAI from 'openai';
-import { chooseModel } from '$lib/utils/ai-model';
+import { chooseModel } from '../../../../lib/utils/ai-model';
 import type { RequestHandler } from '@sveltejs/kit';
 
 const adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -54,7 +54,30 @@ export const POST: RequestHandler = async () => {
       })
       .eq('id', swing.id);
 
-    console.log(`✅ Completed analysis for swing ${swing.id}`);
+    // Create automatic chat message with analysis
+    const chatMessage = `Great swing! I've analyzed your ${swing.category} shot and here's what I found:
+
+**Overall Score: ${analysis.flaws.swing_score}/100**
+
+${analysis.summary}
+
+**Key Areas to Focus On:**
+${analysis.flaws.primary_flaw ? `• ${analysis.flaws.primary_flaw}` : '• Keep working on your fundamentals'}
+${analysis.flaws.secondary_flaw ? `• ${analysis.flaws.secondary_flaw}` : '• Maintain consistent tempo'}
+
+Ready to discuss any specific aspect of your swing? Just ask! 🏌️‍♂️`;
+
+    await adminClient
+      .from('chat_messages')
+      .insert({
+        swing_id: swing.id,
+        user_id: swing.user_id,
+        message: chatMessage,
+        is_coach: true,
+        created_at: new Date().toISOString()
+      });
+
+    console.log(`✅ Completed analysis for swing ${swing.id} and created chat message`);
 
     return json({ 
       message: 'Analysis completed', 
