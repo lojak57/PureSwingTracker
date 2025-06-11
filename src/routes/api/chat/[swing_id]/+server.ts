@@ -1,7 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import type { RequestHandler } from '@sveltejs/kit';
-import { OPENAI_API_KEY } from '$env/static/private';
+import { OPENAI_API_KEY, SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -56,23 +58,27 @@ export const POST: RequestHandler = async ({ params, request }) => {
       );
     }
 
+    // Create per-request client with user's JWT for proper RLS
+    const userClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
     // For general chat, skip swing lookup
     let swing = null;
     let profile = null;
     
     if (swingId !== 'general') {
       // Try to fetch swing data (may not exist yet)
-      const { data: swingData } = await supabase
+      const { data: swingData } = await userClient
         .from('pure_swings')
         .select('*')
         .eq('id', swingId)
-        .eq('user_id', user.id)
         .single();
       swing = swingData;
     }
 
     // Try to get user profile for context (may not exist yet)
-    const { data: profileData } = await supabase
+    const { data: profileData } = await userClient
       .from('pure_profiles')
       .select('handicap, goals, name')
       .eq('id', user.id)
@@ -270,22 +276,18 @@ export const GET: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    // Fetch chat history
+    // 🔧 FIX: Create per-request client with user's JWT for proper RLS
+    const userClient = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    // Fetch chat history (RLS will automatically filter by user_id)
     console.log('🔍 Chat API - swing_id:', swingId, 'user_id:', user.id);
     
-    // Check what messages exist for this swing (without user filter)
-    const { data: allMessages } = await supabase
-      .from('pure_chat_messages')
-      .select('user_id, role')
-      .eq('swing_id', swingId);
-    
-    console.log('📋 All messages for swing:', allMessages?.map(m => ({ user_id: m.user_id, role: m.role })) || []);
-    
-    const { data: messages, error: fetchError } = await supabase
+    const { data: messages, error: fetchError } = await userClient
       .from('pure_chat_messages')
       .select('*')
       .eq('swing_id', swingId)
-      .eq('user_id', user.id)
       .order('created_at', { ascending: true });
     
     console.log('📊 Query result:', { messages: messages?.length || 0, error: fetchError });
