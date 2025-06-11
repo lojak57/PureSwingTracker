@@ -298,9 +298,12 @@ export const POST: RequestHandler = async ({ request }) => {
           console.log('✅ User ensured in pure_users table');
         }
 
-        // Create video URL for swing submission
+        // Create video URL via worker proxy (bypasses SSL issues)
+        const workerDomain = env.WORKER_R2_PROXY_URL || 'pure-golf-r2-proxy.varro-golf.workers.dev';
+        const workerUrl = workerDomain.startsWith('http') ? workerDomain : `https://${workerDomain}`;
+        
         const videoUrls: Record<string, string> = {
-          single: `https://${R2_BUCKET_NAME}.r2.cloudflarestorage.com/${uploadResult.key}`
+          single: `${workerUrl}/${uploadResult.key}`
         };
 
         // Create swing record for analysis pipeline

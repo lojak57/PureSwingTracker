@@ -11,14 +11,63 @@ export default {
         status: 200,
         headers: {
           'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*',
-          'Access-Control-Allow-Methods': 'PUT, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, X-File-Key, X-Content-Type, Authorization',
           'Access-Control-Max-Age': '86400',
         },
       });
     }
 
-    // Only allow PUT/POST
+    // Handle GET requests for video playback
+    if (request.method === 'GET') {
+      const url = new URL(request.url);
+      const pathname = url.pathname.substring(1); // Remove leading slash
+      
+      if (!pathname) {
+        return new Response('File path required', { 
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*',
+          }
+        });
+      }
+
+      console.log(`📥 Worker: Fetching ${pathname} from R2`);
+
+      try {
+        const object = await env.GOLF_SWINGS_BUCKET.get(pathname);
+        
+        if (!object) {
+          return new Response('File not found', { 
+            status: 404,
+            headers: {
+              'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*',
+            }
+          });
+        }
+
+        const headers = new Headers();
+        object.writeHttpMetadata(headers);
+        headers.set('Access-Control-Allow-Origin', env.ALLOWED_ORIGINS || '*');
+        headers.set('Cache-Control', 'public, max-age=31536000');
+        headers.set('Accept-Ranges', 'bytes');
+
+        console.log(`✅ Worker: Successfully serving ${pathname}`);
+
+        return new Response(object.body, { headers });
+        
+      } catch (error: any) {
+        console.error(`🚨 Worker GET error:`, error);
+        return new Response('Failed to fetch file', { 
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*',
+          }
+        });
+      }
+    }
+
+    // Only allow PUT/POST for uploads
     if (request.method !== 'PUT' && request.method !== 'POST') {
       return new Response('Method Not Allowed', { 
         status: 405,
