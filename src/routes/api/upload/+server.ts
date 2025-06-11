@@ -101,7 +101,7 @@ const uploadFileToR2 = async (
   userId: string
 ): Promise<{ key: string; size: number; uploaded: boolean }> => {
   try {
-    console.log(`Starting upload - user: ${userId}, key: ${key}, size: ${file.size}`);
+    console.log(`🟢 DEPLOYMENT CHECK: uploadFileToR2 v2.0 - Starting upload - user: ${userId}, key: ${key}, size: ${file.size}`);
     console.log('Upload configuration:', {
       Bucket: R2_BUCKET_NAME,
       Key: key,
