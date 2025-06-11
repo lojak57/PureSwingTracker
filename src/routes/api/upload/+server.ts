@@ -125,37 +125,34 @@ const uploadFileToR2 = async (
       }
     });
 
-    console.log('Sending PutObjectCommand...');
+    console.log('🚀 About to send PutObjectCommand...');
+    console.log('🚀 S3Client config:', {
+      endpoint: r2Endpoint,
+      forcePathStyle: Boolean(useCustomDomain)
+    });
+    
     const result = await s3Client.send(command);
-    console.log('PutObjectCommand result:', result);
+    console.log('✅ PutObjectCommand SUCCESS:', result);
     
     console.log(`Upload successful - key: ${key}`);
     return { key, size: file.size, uploaded: true };
     
   } catch (error) {
-    console.error(`Upload failed - key: ${key}, error:`, error);
-    console.error('Error details:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : 'No stack',
-      cause: error instanceof Error ? error.cause : 'No cause',
-      errorType: typeof error,
-      errorConstructor: error?.constructor?.name,
-      rawError: JSON.stringify(error, Object.getOwnPropertyNames(error))
-    });
+    console.error('🚨 RAW ERROR CAUGHT:', error);
+    console.error('🚨 ERROR TYPE:', typeof error);
+    console.error('🚨 ERROR STRING:', String(error));
+    console.error('🚨 ERROR JSON:', JSON.stringify(error, null, 2));
+    console.error('🚨 ERROR KEYS:', Object.keys(error || {}));
+    console.error('🚨 ERROR VALUES:', Object.values(error || {}));
     
-    // Try to get more specific error information
-    let errorMessage = 'Unknown error';
     if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error && typeof error === 'object') {
-      errorMessage = JSON.stringify(error);
+      console.error('🚨 ERROR.NAME:', error.name);
+      console.error('🚨 ERROR.MESSAGE:', error.message);
+      console.error('🚨 ERROR.STACK:', error.stack);
     }
     
-    console.error(`Throwing error with message: ${errorMessage}`);
-    throw new Error(`Upload failed for ${key}: ${errorMessage}`);
+    // Just throw the raw error to see what gets passed up
+    throw error;
   }
 };
 
