@@ -192,15 +192,13 @@ export class SwingService {
   }
 
   /**
-   * Upload all recordings in a session (backend proxy approach)
+   * Upload all recordings in a session (conditional strategy based on file size)
    */
   static async uploadSession(
     session: SwingSession,
     mode: 'training' | 'quick' = 'training',
     onProgress?: (angle: AngleType, progress: number) => void
   ): Promise<UploadResponse> {
-    console.log('🔄 Using backend upload proxy (R2 direct failed SSL)');
-    
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession();
       if (!authSession) {
@@ -222,16 +220,57 @@ export class SwingService {
         return { success: false, error: 'No video file available' };
       }
 
+      const fileSizeMB = (videoFile.size / 1024 / 1024);
       console.log('📹 Video file details:', {
         name: videoFile.name,
         size: videoFile.size,
         type: videoFile.type,
-        sizeMB: (videoFile.size / 1024 / 1024).toFixed(2)
+        sizeMB: fileSizeMB.toFixed(2)
       });
+
+      // Conditional upload strategy based on file size
+      const VERCEL_LIMIT_MB = 4;
+      
+      if (fileSizeMB > VERCEL_LIMIT_MB) {
+        console.log(`🚀 LARGE FILE (${fileSizeMB.toFixed(2)}MB): Using direct Worker upload to bypass Vercel 4MB limit`);
+        return await this.uploadLargeFileToWorker(
+          videoFile, 
+          session.category, 
+          mode, 
+          onProgress ? (progress) => onProgress('single', progress) : undefined
+        );
+      } else {
+        console.log(`📤 SMALL FILE (${fileSizeMB.toFixed(2)}MB): Using Vercel backend upload`);
+        return await this.uploadViaBackend(videoFile, session.category, mode, onProgress);
+      }
+
+    } catch (error) {
+      console.error('❌ Upload preparation failed:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Upload preparation failed' 
+      };
+    }
+  }
+
+  /**
+   * Upload via Vercel backend (for files <4MB)
+   */
+  static async uploadViaBackend(
+    videoFile: File,
+    category: string,
+    mode: 'training' | 'quick',
+    onProgress?: (angle: AngleType, progress: number) => void
+  ): Promise<UploadResponse> {
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) {
+        return { success: false, error: 'Not authenticated' };
+      }
 
       // Prepare FormData with single video
       const formData = new FormData();
-      formData.append('category', session.category);
+      formData.append('category', category);
       formData.append('mode', mode);
       formData.append('video', videoFile);
 
@@ -357,5 +396,149 @@ export class SwingService {
         // URL.revokeObjectURL(blobUrl);
       }
     });
+  }
+
+  /**
+   * Upload large files directly to Cloudflare Worker (bypass Vercel 4MB limit)
+   */
+  static async uploadLargeFileToWorker(
+    videoFile: File,
+    category: string,
+    mode: 'training' | 'quick' = 'training',
+    onProgress?: (progress: number) => void
+  ): Promise<UploadResponse> {
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      // Generate upload session and key
+      const uploadSession = crypto.randomUUID();
+      const key = `${mode}/${authSession.user.id}/${category}/single/${uploadSession}/${videoFile.name}`;
+      
+      console.log(`🔧 LARGE FILE UPLOAD: Direct to Worker - size: ${videoFile.size}, key: ${key}`);
+
+      // Cloudflare Worker R2 Proxy URL
+      const workerDomain = 'pure-golf-r2-proxy.varro-golf.workers.dev';
+      const workerUrl = `https://${workerDomain}`;
+      
+      // Upload directly to Worker with progress tracking
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable && onProgress) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            console.log(`📊 Direct Worker upload progress: ${progress}%`);
+            onProgress(progress);
+          }
+        });
+
+        xhr.addEventListener('load', async () => {
+          try {
+            console.log('📡 Worker response status:', xhr.status);
+            console.log('📡 Worker response text:', xhr.responseText);
+            
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const response = JSON.parse(xhr.responseText);
+              console.log('✅ Worker response parsed:', response);
+              
+              if (response.success) {
+                // Create swing record via separate API call
+                const swingId = await this.createSwingRecord(
+                  key, 
+                  category, 
+                  mode, 
+                  uploadSession, 
+                  authSession.access_token
+                );
+                
+                resolve({ success: true, swingId: swingId || undefined });
+              } else {
+                resolve({ 
+                  success: false, 
+                  error: response.error || 'Worker upload failed' 
+                });
+              }
+            } else {
+              let errorMessage = `Worker upload failed with status: ${xhr.status}`;
+              try {
+                const errorResponse = JSON.parse(xhr.responseText);
+                errorMessage = errorResponse.error || errorMessage;
+              } catch (parseError) {
+                console.error('❌ Could not parse worker error response:', xhr.responseText);
+              }
+              
+              resolve({ success: false, error: errorMessage });
+            }
+          } catch (error) {
+            console.error('❌ Error parsing worker response:', error);
+            resolve({ 
+              success: false, 
+              error: 'Failed to parse worker response' 
+            });
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          console.error('❌ Network error during worker upload');
+          resolve({ success: false, error: 'Upload failed due to network error' });
+        });
+
+        xhr.open('PUT', workerUrl);
+        xhr.setRequestHeader('X-File-Key', key);
+        xhr.setRequestHeader('X-Content-Type', videoFile.type);
+        xhr.setRequestHeader('X-Metadata-uploaded-by', authSession.user.id);
+        xhr.setRequestHeader('X-Metadata-upload-timestamp', new Date().toISOString());
+        xhr.setRequestHeader('X-Metadata-original-filename', videoFile.name);
+        xhr.setRequestHeader('Content-Type', videoFile.type);
+        xhr.send(videoFile);
+      });
+
+    } catch (error) {
+      console.error('❌ Large file upload preparation failed:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Upload preparation failed' 
+      };
+    }
+  }
+
+  /**
+   * Create swing record after successful Worker upload
+   */
+  static async createSwingRecord(
+    key: string, 
+    category: string, 
+    mode: string, 
+    uploadSession: string, 
+    accessToken: string
+  ): Promise<string | null> {
+    try {
+      const response = await fetch('/api/swings/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          key,
+          category,
+          mode,
+          uploadSession
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create swing record: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.swingId;
+    } catch (error) {
+      console.error('❌ Failed to create swing record:', error);
+      return null;
+    }
   }
 } 
