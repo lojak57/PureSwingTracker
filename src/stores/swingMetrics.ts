@@ -86,7 +86,7 @@ export async function getExistingMetrics(swingId: string, accessToken: string, r
       .from('swing_metrics')
       .select('*')
       .eq('swing_id', swingId)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') { // Not found is OK
       console.error('Error fetching existing metrics:', error);
