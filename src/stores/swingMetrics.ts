@@ -21,17 +21,22 @@ export const isAnalyzing = writable<boolean>(false);
 
 let currentChannel: RealtimeChannel | null = null;
 
-export async function subscribeToMetrics(swingId: string, userToken: string) {
+export async function subscribeToMetrics(swingId: string, accessToken: string, refreshToken: string) {
   // Clean up existing subscription
   if (currentChannel) {
     supabase.removeChannel(currentChannel);
   }
 
-  // Ensure the client is authenticated before subscribing
-  await supabase.auth.setSession({
-    access_token: userToken,
-    refresh_token: userToken // Use same token for refresh (temporary)
+  // Properly authenticate the client with both tokens
+  const { data, error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken
   });
+  
+  if (error) {
+    console.error("Failed to set Supabase session:", error);
+    return () => {}; // Return empty cleanup function
+  }
 
   isAnalyzing.set(true);
   swingMetrics.set(null);
@@ -64,10 +69,19 @@ export async function subscribeToMetrics(swingId: string, userToken: string) {
 }
 
 // Check if metrics already exist for a swing
-export async function getExistingMetrics(swingId: string, userToken: string): Promise<SwingMetrics | null> {
+export async function getExistingMetrics(swingId: string, accessToken: string, refreshToken: string): Promise<SwingMetrics | null> {
   try {
-    // Use the authenticated supabase client from the page context
-    // The session should already be set by the calling page
+    // Properly authenticate the client before querying
+    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+    
+    if (sessionError) {
+      console.error('Failed to set session for metrics fetch:', sessionError);
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('swing_metrics')
       .select('*')
